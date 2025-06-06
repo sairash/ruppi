@@ -4,37 +4,27 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"rupi/element"
 	"strings"
-	"time"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/term"
 )
 
 var (
-	appStyle     = lipgloss.NewStyle().Padding(0, 1)
-	testingStyle = lipgloss.NewStyle().Border(lipgloss.NormalBorder(), true, false, false)
+	appStyle       = lipgloss.NewStyle().Padding(0, 1)
+	BorderTopStyle = lipgloss.NewStyle().Border(lipgloss.NormalBorder(), true, false, false)
+	bodyStyle      = lipgloss.NewStyle()
 )
 
-type model struct {
-	width   int
-	height  int
-	isKitty bool
-}
-
-type tickMsg time.Time
-
-func (m model) block(value string, scale int) string {
-	if !m.isKitty || scale <= 1 {
-		return value + "\n"
-	}
-	amount := scale - 1
-	if scale == 4 {
-		amount = 2
-	}
-
-	return fmt.Sprintf("\x1b]66;s=%d;%s\x07%s", scale, value, strings.Repeat("\n", amount))
+type Browser struct {
+	width    int
+	height   int
+	isKitty  bool
+	url      textinput.Model
+	elements []element.Node
 }
 
 func main() {
@@ -43,49 +33,170 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	p := tea.NewProgram(model{
-		width:   width,
-		height:  height,
-		isKitty: strings.Contains(termProgram, "kitty"),
+
+	ti := textinput.New()
+	ti.PlaceholderStyle = lipgloss.NewStyle().Faint(true)
+	ti.Placeholder = "Search DuckDuckGo or type Url"
+	ti.Width = width - 10
+	ti.Focus()
+	// ti.Width
+	ti.Prompt = "Url: "
+
+	elements := []element.Node{
+		{
+			Element: element.ElementData{
+				NodeType: element.H1,
+				Attrs:    map[string]string{},
+			},
+			Children: []element.Node{
+				{
+					InnerText: "H1",
+					Element: element.ElementData{
+						NodeType: element.TEXT,
+					},
+				},
+			},
+		},
+		{
+			Element: element.ElementData{
+				NodeType: element.H2,
+				Attrs:    map[string]string{},
+			},
+			Children: []element.Node{
+				{
+					InnerText: "H2",
+					Element: element.ElementData{
+						NodeType: element.TEXT,
+					},
+				},
+			},
+		},
+		{
+			Element: element.ElementData{
+				NodeType: element.H3,
+				Attrs:    map[string]string{},
+			},
+			Children: []element.Node{
+				{
+					InnerText: "H3",
+					Element: element.ElementData{
+						NodeType: element.TEXT,
+					},
+				},
+			},
+		},
+		{
+			Element: element.ElementData{
+				NodeType: element.H4,
+				Attrs:    map[string]string{},
+			},
+			Children: []element.Node{
+				{
+					InnerText: "H4",
+					Element: element.ElementData{
+						NodeType: element.TEXT,
+					},
+				},
+			},
+		},
+		{
+			Element: element.ElementData{
+				NodeType: element.H5,
+				Attrs:    map[string]string{},
+			},
+			Children: []element.Node{
+				{
+					InnerText: "H5",
+					Element: element.ElementData{
+						NodeType: element.TEXT,
+					},
+				},
+			},
+		},
+		{
+			InnerText: "H6",
+			Element: element.ElementData{
+				NodeType: element.H6,
+				Attrs:    map[string]string{},
+			},
+			Children: []element.Node{
+				{
+					InnerText: "H6",
+					Element: element.ElementData{
+						NodeType: element.TEXT,
+					},
+				},
+				{
+					InnerText: "Italic",
+					Element: element.ElementData{
+						NodeType: element.ITALIC,
+					},
+					Children: []element.Node{
+						{
+							InnerText: "Itallic",
+							Element: element.ElementData{
+								NodeType: element.TEXT,
+							},
+						},
+						{
+							Element: element.ElementData{
+								NodeType: element.BOLD,
+							},
+							Children: []element.Node{
+								{
+									Element: element.ElementData{
+										NodeType: element.TEXT,
+									},
+									InnerText: "Bold and Italic",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	p := tea.NewProgram(Browser{
+		width:    width,
+		height:   height,
+		url:      ti,
+		isKitty:  strings.Contains(termProgram, "kitty"),
+		elements: elements,
 	}, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func (m model) Init() tea.Cmd {
-	return tick()
+func (b Browser) Init() tea.Cmd {
+	return nil
 }
 
-func (m model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
+func (b Browser) Update(message tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
 	switch msg := message.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "esc", "ctrl+c":
-			return m, tea.Quit
+			return b, tea.Quit
 		}
 
-	case tickMsg:
-		return m, tick()
+		if b.url.Focused() {
+			b.url, cmd = b.url.Update(msg)
+		}
 	}
 
-	return m, nil
+	return b, cmd
 }
 
-func (m model) View() string {
-	value := fmt.Sprintf("%sA simple terminal Web browser written in golang! \n%s\n%s%s%s%s",
-		m.block("- Rupi 🐦 -", 3),
-		testingStyle.Width(m.width-4).Render("Testing:"),
-		m.block("H1", 4),
-		m.block("H2", 3),
-		m.block("H3", 2),
-		m.block("H4, H5, H6", 1),
-	)
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, appStyle.Width(m.width-2).Height(m.height-15).Render(value))
-}
+func (b Browser) View() string {
+	x := ""
 
-func tick() tea.Cmd {
-	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
-		return tickMsg(t)
-	})
+	for _, element := range b.elements {
+		x += element.Render(b.isKitty)
+	}
+
+	value := fmt.Sprintf("%s\n%s", bodyStyle.Width(b.width-4).Height(b.height-9).Render(x), BorderTopStyle.Width(b.width-4).Render(b.url.View()))
+	return lipgloss.Place(b.width, b.height, lipgloss.Left, lipgloss.Bottom, appStyle.Width(b.width-2).Render(value))
 }
