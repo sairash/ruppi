@@ -44,12 +44,7 @@ type renderState struct {
 }
 
 func (s *renderState) ensureNewline() {
-	if s.builder.Len() == 0 {
-		return
-	}
-
-	lastChar := s.builder.String()[s.builder.Len()-1]
-	if lastChar != '\n' {
+	if s.builder.Len() > 0 && s.builder.String()[s.builder.Len()-1] != '\n' {
 		s.builder.WriteRune('\n')
 	}
 }
@@ -69,8 +64,21 @@ func (n *Node) renderRecursive(state *renderState, isKitty bool) {
 	}
 
 	var content string
-	for _, child := range n.Children {
-		child.renderRecursive(state, isKitty)
+	if len(n.Children) > 0 {
+		var childrenBuilder strings.Builder
+
+		childrenState := &renderState{builder: &childrenBuilder}
+
+		for i, child := range n.Children {
+			child.renderRecursive(childrenState, isKitty)
+
+			if i < len(n.Children)-1 && !isBlockElement(child.Element.NodeType) && !isBlockElement(n.Children[i+1].Element.NodeType) {
+				childrenBuilder.WriteString(" ")
+			}
+		}
+		content = childrenBuilder.String()
+	} else {
+		content = n.InnerText
 	}
 
 	var finalOutput string
@@ -88,14 +96,20 @@ func (n *Node) renderRecursive(state *renderState, isKitty bool) {
 	case ITALIC:
 		finalOutput = ItalicStyle.Render(content)
 	case TEXT:
-		finalOutput = n.InnerText
+		finalOutput = content
+	default:
+		finalOutput = content
 	}
 
-	if len(n.Children) == 0 {
-		state.builder.WriteString(finalOutput)
+	state.builder.WriteString(finalOutput)
+
+	if !isBlock {
+		return
 	}
 
-	if isBlock {
+	if (n.Element.NodeType == H1 || n.Element.NodeType == H2) && isKitty {
+		state.builder.WriteString("\n\n")
+	} else {
 		state.builder.WriteRune('\n')
 	}
 }
@@ -113,7 +127,6 @@ func setKittyFontSize(content string, size int, isKitty bool) string {
 	if !isKitty || size <= 1 {
 		return content
 	}
-
 	if size > 4 {
 		size = 4
 	}
