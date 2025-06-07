@@ -21,6 +21,7 @@ const (
 	TEXT
 	BOLD
 	ITALIC
+	DOCUMENT
 )
 
 var (

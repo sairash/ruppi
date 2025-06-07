@@ -24,7 +24,9 @@ type Browser struct {
 	height   int
 	isKitty  bool
 	url      textinput.Model
-	elements []element.Node
+	document element.Node
+
+	scrollPos int
 }
 
 func main() {
@@ -158,11 +160,17 @@ func main() {
 	}
 
 	p := tea.NewProgram(Browser{
-		width:    width,
-		height:   height,
-		url:      ti,
-		isKitty:  strings.Contains(termProgram, "kitty"),
-		elements: elements,
+		width:   width,
+		height:  height,
+		url:     ti,
+		isKitty: strings.Contains(termProgram, "kitty"),
+		document: element.Node{
+			Element: element.ElementData{
+				NodeType: element.DOCUMENT,
+			},
+			Children: elements,
+		},
+		scrollPos: 0,
 	}, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
@@ -191,11 +199,7 @@ func (b Browser) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (b Browser) View() string {
-	x := ""
-
-	for _, element := range b.elements {
-		x += element.Render(b.isKitty)
-	}
+	x := b.document.Render(b.isKitty)
 
 	value := fmt.Sprintf("%s\n%s", bodyStyle.Width(b.width-4).Height(b.height-9).Render(x), BorderTopStyle.Width(b.width-4).Render(b.url.View()))
 	return lipgloss.Place(b.width, b.height, lipgloss.Left, lipgloss.Bottom, appStyle.Width(b.width-2).Render(value))
