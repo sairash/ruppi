@@ -1,10 +1,14 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"rupi/config"
 	"rupi/element"
+	"rupi/parser"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -15,7 +19,7 @@ import (
 
 var (
 	appStyle       = lipgloss.NewStyle().Padding(0, 1)
-	BorderTopStyle = lipgloss.NewStyle().Border(lipgloss.NormalBorder(), true, false, false)
+	BorderTopStyle = lipgloss.NewStyle().Background(lipgloss.Color("29"))
 	bodyStyle      = lipgloss.NewStyle()
 )
 
@@ -30,6 +34,33 @@ type Browser struct {
 }
 
 func main() {
+	err := config.LoadConfig("./rupi.conf")
+
+	urlFlag := flag.String("url", "", "The URL to parse and render.")
+	kittyFlag := flag.Bool("kitty", true, "Enable Kitty terminal font size extensions.")
+	flag.Parse()
+
+	if *urlFlag == "" {
+		fmt.Println("Please provide a URL with the -url flag.")
+		flag.PrintDefaults()
+		os.Exit(1)
+	}
+
+	resp, err := http.Get(*urlFlag)
+	if err != nil {
+		log.Fatalf("Failed to fetch URL: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Fatalf("Failed to get a valid response: %s", resp.Status)
+	}
+
+	rootNode, err := parser.Parse(resp.Body)
+	if err != nil {
+		log.Fatalf("Failed to parse HTML: %v", err)
+	}
+
 	termProgram := os.Getenv("TERM")
 	width, height, err := term.GetSize(0)
 	if err != nil {
@@ -40,135 +71,23 @@ func main() {
 	ti.PlaceholderStyle = lipgloss.NewStyle().Faint(true)
 	ti.Placeholder = "Search DuckDuckGo or type Url"
 	ti.Width = width - 10
+	ti.SetValue(*urlFlag)
 	ti.Focus()
 	// ti.Width
 	ti.Prompt = "Url: "
-
-	elements := []element.Node{
-		{
-			Element: element.ElementData{
-				NodeType: element.H1,
-				Attrs:    map[string]string{},
-			},
-			Children: []element.Node{
-				{
-					InnerText: "H1",
-					Element: element.ElementData{
-						NodeType: element.TEXT,
-					},
-				},
-			},
-		},
-		{
-			Element: element.ElementData{
-				NodeType: element.H2,
-				Attrs:    map[string]string{},
-			},
-			Children: []element.Node{
-				{
-					InnerText: "H2",
-					Element: element.ElementData{
-						NodeType: element.TEXT,
-					},
-				},
-			},
-		},
-		{
-			Element: element.ElementData{
-				NodeType: element.H3,
-				Attrs:    map[string]string{},
-			},
-			Children: []element.Node{
-				{
-					InnerText: "H3",
-					Element: element.ElementData{
-						NodeType: element.TEXT,
-					},
-				},
-			},
-		},
-		{
-			Element: element.ElementData{
-				NodeType: element.H4,
-				Attrs:    map[string]string{},
-			},
-			Children: []element.Node{
-				{
-					InnerText: "H4",
-					Element: element.ElementData{
-						NodeType: element.TEXT,
-					},
-				},
-			},
-		},
-		{
-			Element: element.ElementData{
-				NodeType: element.H5,
-				Attrs:    map[string]string{},
-			},
-			Children: []element.Node{
-				{
-					InnerText: "H5",
-					Element: element.ElementData{
-						NodeType: element.TEXT,
-					},
-				},
-			},
-		},
-		{
-			InnerText: "H6",
-			Element: element.ElementData{
-				NodeType: element.H6,
-				Attrs:    map[string]string{},
-			},
-			Children: []element.Node{
-				{
-					InnerText: "H6",
-					Element: element.ElementData{
-						NodeType: element.TEXT,
-					},
-				},
-				{
-					InnerText: "Italic",
-					Element: element.ElementData{
-						NodeType: element.ITALIC,
-					},
-					Children: []element.Node{
-						{
-							InnerText: "Itallic",
-							Element: element.ElementData{
-								NodeType: element.TEXT,
-							},
-						},
-						{
-							Element: element.ElementData{
-								NodeType: element.BOLD,
-							},
-							Children: []element.Node{
-								{
-									Element: element.ElementData{
-										NodeType: element.TEXT,
-									},
-									InnerText: "Bold and Italic",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
 
 	p := tea.NewProgram(Browser{
 		width:   width,
 		height:  height,
 		url:     ti,
-		isKitty: strings.Contains(termProgram, "kitty"),
+		isKitty: strings.Contains(termProgram, "kitty") || *kittyFlag,
 		document: element.Node{
 			Element: element.ElementData{
-				NodeType: element.DOCUMENT,
+				NodeType: element.ROOT,
 			},
-			Children: elements,
+			Children: []element.Node{
+				rootNode,
+			},
 		},
 		scrollPos: 0,
 	}, tea.WithAltScreen())
@@ -201,6 +120,6 @@ func (b Browser) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 func (b Browser) View() string {
 	x := b.document.Render(b.isKitty)
 
-	value := fmt.Sprintf("%s\n%s", bodyStyle.Width(b.width-4).Height(b.height-9).Render(x), BorderTopStyle.Width(b.width-4).Render(b.url.View()))
+	value := fmt.Sprintf("%s\n%s", bodyStyle.Width(b.width-4).Height(b.height-2).Render(x), BorderTopStyle.Width(b.width-4).Render(b.url.View()))
 	return lipgloss.Place(b.width, b.height, lipgloss.Left, lipgloss.Bottom, appStyle.Width(b.width-2).Render(value))
 }
