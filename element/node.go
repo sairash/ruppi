@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"rupi/config"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -192,6 +193,102 @@ func (n *Node) renderRecursive(state *renderState, isKitty bool) {
 			state.listIndex++
 		}
 	}
+}
+
+func stripANSICodes(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+
+	inEscape := false
+	for _, r := range s {
+		if r == '\x1b' {
+			inEscape = true
+			continue
+		}
+		if inEscape {
+			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+				inEscape = false
+			}
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+func normalizeNewlines(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+
+	newlineCount := 0
+	for _, r := range s {
+		if r == '\n' {
+			newlineCount++
+			if newlineCount <= 2 {
+				b.WriteRune(r)
+			}
+		} else {
+			newlineCount = 0
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+func WordWrap(text string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return text
+	}
+
+	text = normalizeNewlines(text)
+
+	var wrappedText strings.Builder
+	wrappedText.Grow(len(text) + len(text)/maxWidth*2)
+
+	currentLineLength := 0
+	words := strings.FieldsFunc(text, func(r rune) bool {
+		return r == ' ' || r == '\n' || r == '\t' || r == '\r'
+	})
+
+	remainingText := text
+	for _, word := range words {
+		idx := strings.Index(remainingText, word)
+		if idx == -1 {
+			continue
+		}
+
+		segment := remainingText[:idx+len(word)]
+
+		remainingText = remainingText[idx+len(word):]
+
+		actualWord := word
+		leadingWhitespace := ""
+		if idx > 0 {
+			leadingWhitespace = segment[:idx]
+		}
+
+		displayWord := stripANSICodes(actualWord)
+		wordDisplayLength := utf8.RuneCountInString(displayWord)
+
+		newlineInSegment := strings.ContainsRune(leadingWhitespace, '\n')
+		if newlineInSegment {
+			if wrappedText.Len() > 0 && wrappedText.String()[wrappedText.Len()-1] != '\n' {
+				wrappedText.WriteRune('\n')
+			}
+			currentLineLength = 0
+		} else if currentLineLength > 0 && currentLineLength+1+wordDisplayLength > maxWidth {
+			wrappedText.WriteRune('\n')
+			currentLineLength = 0
+		} else if currentLineLength > 0 {
+			wrappedText.WriteRune(' ')
+			currentLineLength++
+		}
+
+		wrappedText.WriteString(actualWord)
+		currentLineLength += wordDisplayLength
+	}
+
+	return wrappedText.String()
 }
 
 func isBlockElement(nodeType uint) bool {
