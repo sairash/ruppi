@@ -20,6 +20,9 @@ import (
 
 const (
 	statusBarHeight = 1
+
+	activeViewPort = iota
+	activeInputUrl
 )
 
 var (
@@ -39,7 +42,7 @@ type Browser struct {
 	contentWidth int
 	isKitty      bool
 	title        string
-	url          string
+	url          textinput.Model
 	// url          textinput.Model
 	document element.Node
 	ready    bool
@@ -47,7 +50,8 @@ type Browser struct {
 
 	viewport viewport.Model
 
-	scrollPos int
+	scrollPos  int
+	activePane int
 }
 
 func main() {
@@ -90,8 +94,7 @@ func main() {
 	ti.PlaceholderStyle = lipgloss.NewStyle().Faint(true)
 	ti.Placeholder = "Search DuckDuckGo or type Url"
 	ti.SetValue(*urlFlag)
-	ti.Focus()
-	// ti.Width
+	ti.Blur()
 	ti.Prompt = "Url: "
 
 	b := Browser{
@@ -99,7 +102,7 @@ func main() {
 		height:       height,
 		title:        title,
 		contentWidth: *contentWidth,
-		url:          *urlFlag,
+		url:          ti,
 		isKitty:      strings.Contains(termProgram, "kitty") || *kittyFlag,
 		document: element.Node{
 			Element: element.ElementData{
@@ -109,8 +112,9 @@ func main() {
 				rootNode,
 			},
 		},
-		scrollPos: 0,
-		ready:     false,
+		scrollPos:  0,
+		ready:      false,
+		activePane: activeViewPort,
 	}
 	b.wordWrap()
 
@@ -135,12 +139,20 @@ func (b Browser) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "q", "esc", "ctrl+c":
 			return b, tea.Quit
+		case "tab":
+			if b.activePane == activeViewPort {
+				b.url.Focus()
+				b.activePane = activeInputUrl
+			} else {
+				b.url.Blur()
+				b.activePane = activeViewPort
+			}
 		}
 
-		// if b.url.Focused() {
-		// 	b.url, cmd = b.url.Update(msg)
-		// 	cmds = append(cmds, cmd)
-		// }
+		if b.url.Focused() {
+			b.url, cmd = b.url.Update(msg)
+			cmds = append(cmds, cmd)
+		}
 	case tea.WindowSizeMsg:
 
 		b.width = msg.Width
@@ -155,10 +167,14 @@ func (b Browser) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			b.viewport.Width = msg.Width - 10
 			b.viewport.Height = msg.Height - 2
 		}
+
+		b.url.Width = b.width - 25
 	}
 
-	b.viewport, cmd = b.viewport.Update(message)
-	cmds = append(cmds, cmd)
+	if b.activePane == activeViewPort {
+		b.viewport, cmd = b.viewport.Update(message)
+		cmds = append(cmds, cmd)
+	}
 
 	return b, tea.Batch(cmds...)
 }
@@ -181,7 +197,7 @@ func (b Browser) View() string {
 		return "\n  Initializing..."
 	}
 
-	statusBar := statusStyle.Width(b.width - 2).Render(fmt.Sprintf("%s%s%s", logoStyle.Render("Rupi 🐦"), statusColor.Width(b.width-20).PaddingLeft(1).Render(b.url), statusColor.Render(fmt.Sprintf("%3.f%%", b.viewport.ScrollPercent()*100))))
+	statusBar := statusStyle.Width(b.width - 2).Render(fmt.Sprintf("%s%s%s", logoStyle.Render("Rupi 🐦"), statusColor.PaddingLeft(1).Render(b.url.View()), statusColor.Render(fmt.Sprintf("%3.f%%", b.viewport.ScrollPercent()*100))))
 
 	title := fmt.Sprintf("%s \n", tytleStyle.Render(b.title))
 	body := fmt.Sprintf("%s\n%s%s", statusBar, title, b.viewport.View())
