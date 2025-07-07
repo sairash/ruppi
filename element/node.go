@@ -45,7 +45,6 @@ const (
 var (
 	BoldStyle       = lipgloss.NewStyle().Bold(true)
 	ItalicStyle     = lipgloss.NewStyle().Italic(true)
-	CodeStyle       = lipgloss.NewStyle().Background(lipgloss.Color("237")).Foreground(lipgloss.Color("229"))
 	BlockquoteStyle = lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).BorderLeft(true).PaddingLeft(1).MarginLeft(2)
 	LinkStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("32")).Underline(true)
 	HrStyle         = lipgloss.NewStyle().Faint(true)
@@ -170,12 +169,9 @@ func (n *Node) renderRecursive(state *renderState, isKitty bool) {
 	case BLOCKQUOTE:
 		finalOutput = BlockquoteStyle.Render(content)
 	case PRE:
-
 		finalOutput = lipgloss.NewStyle().Margin(1, 2).Render(content)
 	case HR:
-
 		finalOutput = HrStyle.Render(strings.Repeat("─", 50))
-
 	case STYLE, SCRIPT, IFRAME:
 	default:
 		finalOutput = config.AddStyle(n.Element.Name, content)

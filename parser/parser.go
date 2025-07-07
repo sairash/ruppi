@@ -2,9 +2,8 @@ package parser
 
 import (
 	"io"
-	"strings"
-
 	"rupi/element"
+	"strings"
 
 	"golang.org/x/net/html"
 )

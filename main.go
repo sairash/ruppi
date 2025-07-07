@@ -168,10 +168,11 @@ func (b Browser) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			b.viewport = viewport.New(b.width-5, msg.Height-3)
 			b.viewport.SetContent(b.rendered)
 			b.ready = true
-		} else {
-			b.viewport.Width = msg.Width - 10
-			b.viewport.Height = msg.Height - 2
 		}
+		//  else {
+		// b.viewport.Width = msg.Width - 10
+		// b.viewport.Height = msg.Height - 2
+		// }
 
 		b.url.Width = b.width - 25
 	}
