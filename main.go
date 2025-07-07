@@ -4,11 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"rupi/config"
 	"rupi/element"
-	"rupi/parser"
+	"rupi/request"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -68,19 +67,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	resp, err := http.Get(*urlFlag)
-	if err != nil {
-		log.Fatalf("Failed to fetch URL: %v", err)
-	}
-	defer resp.Body.Close()
+	documentNode, title, err := request.GetUrlAsNode(*urlFlag)
 
-	if resp.StatusCode != http.StatusOK {
-		log.Fatalf("Failed to get a valid response: %s", resp.Status)
-	}
-
-	rootNode, title, err := parser.Parse(resp.Body)
 	if err != nil {
-		log.Fatalf("Failed to parse HTML: %v", err)
+		log.Fatal(err)
 	}
 
 	termProgram := os.Getenv("TERM")
@@ -104,17 +94,10 @@ func main() {
 		contentWidth: *contentWidth,
 		url:          ti,
 		isKitty:      strings.Contains(termProgram, "kitty") || *kittyFlag,
-		document: element.Node{
-			Element: element.ElementData{
-				NodeType: element.ROOT,
-			},
-			Children: []element.Node{
-				rootNode,
-			},
-		},
-		scrollPos:  0,
-		ready:      false,
-		activePane: activeViewPort,
+		document:     documentNode,
+		scrollPos:    0,
+		ready:        false,
+		activePane:   activeViewPort,
 	}
 	b.wordWrap()
 
@@ -136,10 +119,19 @@ func (b Browser) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := message.(type) {
 	case tea.KeyMsg:
+		if b.url.Focused() {
+			b.url, cmd = b.url.Update(msg)
+			cmds = append(cmds, cmd)
+		}
+
 		switch msg.String() {
-		case "q", "esc", "ctrl+c":
+		case "ctrl+c":
 			return b, tea.Quit
-		case "tab":
+		case "q":
+			if b.activePane == activeViewPort {
+				return b, tea.Quit
+			}
+		case "i":
 			if b.activePane == activeViewPort {
 				b.url.Focus()
 				b.activePane = activeInputUrl
@@ -147,11 +139,24 @@ func (b Browser) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				b.url.Blur()
 				b.activePane = activeViewPort
 			}
-		}
+		case "esc":
+			if b.activePane == activeInputUrl {
+				b.url.Blur()
+				b.activePane = activeViewPort
+			}
+		case "enter":
+			if b.url.Focused() {
+				documentNode, title, err := request.GetUrlAsNode(b.url.Value())
 
-		if b.url.Focused() {
-			b.url, cmd = b.url.Update(msg)
-			cmds = append(cmds, cmd)
+				if err != nil {
+					log.Fatal(err)
+				}
+				b.document = documentNode
+				b.title = title
+
+				b.rendered = element.WordWrap(b.document.Render(b.isKitty), b.wordWrap())
+				b.viewport.SetContent(b.rendered)
+			}
 		}
 	case tea.WindowSizeMsg:
 
