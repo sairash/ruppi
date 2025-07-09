@@ -15,6 +15,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/term"
+
+	zone "github.com/lrstanley/bubblezone"
 )
 
 const (
@@ -73,6 +75,9 @@ func main() {
 		log.Fatal(err)
 	}
 
+	zone.NewGlobal()
+	defer zone.Close()
+
 	termProgram := os.Getenv("TERM")
 
 	width, height, err := term.GetSize(0)
@@ -101,7 +106,7 @@ func main() {
 	}
 	b.wordWrap()
 
-	p := tea.NewProgram(b, tea.WithAltScreen())
+	p := tea.NewProgram(b, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
 	}
@@ -146,6 +151,8 @@ func (b Browser) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "enter":
 			if b.url.Focused() {
+				b.url.Blur()
+				b.activePane = activeViewPort
 				documentNode, title, err := request.GetUrlAsNode(b.url.Value())
 
 				if err != nil {
@@ -158,6 +165,15 @@ func (b Browser) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				b.viewport.SetContent(b.rendered)
 			}
 		}
+
+	case tea.MouseMsg:
+		if msg.Action == tea.MouseActionRelease && msg.Button == tea.MouseButtonLeft {
+			if zone.Get("url_input_bar").InBounds(msg) {
+				b.url.Focus()
+				b.activePane = activeInputUrl
+			}
+		}
+
 	case tea.WindowSizeMsg:
 
 		b.width = msg.Width
@@ -203,9 +219,9 @@ func (b Browser) View() string {
 		return "\n  Initializing..."
 	}
 
-	statusBar := statusStyle.Width(b.width - 2).Render(fmt.Sprintf("%s%s%s", logoStyle.Render("Rupi 🐦"), statusColor.PaddingLeft(1).Render(b.url.View()), statusColor.Render(fmt.Sprintf("%3.f%%", b.viewport.ScrollPercent()*100))))
+	statusBar := statusStyle.Width(b.width - 2).Render(fmt.Sprintf("%s%s%s", logoStyle.Render("Rupi 🐦"), zone.Mark("url_input_bar", statusColor.PaddingLeft(1).Render(b.url.View())), statusColor.Render(fmt.Sprintf("%3.f%%", b.viewport.ScrollPercent()*100))))
 
 	title := fmt.Sprintf("%s \n", tytleStyle.Render(b.title))
 	body := fmt.Sprintf("%s\n%s%s", statusBar, title, b.viewport.View())
-	return lipgloss.Place(b.width, b.height, lipgloss.Left, lipgloss.Top, appStyle.Width(b.width).Render(body))
+	return zone.Scan(lipgloss.Place(b.width, b.height, lipgloss.Left, lipgloss.Top, appStyle.Width(b.width).Render(body)))
 }
