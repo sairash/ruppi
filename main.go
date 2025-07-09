@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"rupi/config"
 	"rupi/element"
@@ -38,9 +39,81 @@ var (
 )
 
 type BrowerTab struct {
-	id       string
-	document element.Node
-	rendered string
+	id            int
+	document      element.Node
+	rendered      string
+	title         string
+	scrollPos     float64
+	renderedWidth int
+}
+
+func (bt *BrowerTab) render(wordwrap int, isKitty bool) {
+	bt.rendered = element.WordWrap(bt.document.Render(isKitty), wordwrap)
+	bt.renderedWidth = wordwrap
+}
+
+func (bt *BrowerTab) changeTabUrl(url string, wordWrap int, isKitty bool) {
+	documentNode, title, err := request.GetUrlAsNode(url)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	bt.document = documentNode
+	bt.title = title
+
+	bt.rendered = element.WordWrap(documentNode.Render(isKitty), wordWrap)
+}
+
+type BrowerTabs struct {
+	tabs        map[int]*BrowerTab
+	activeTab   *BrowerTab
+	activeTabID int
+}
+
+func (bts *BrowerTabs) render(wordWrap int, isKitty bool) {
+	bts.activeTab.render(wordWrap, isKitty)
+}
+
+func (bts *BrowerTabs) rendered() string {
+	return bts.activeTab.rendered
+}
+
+func (bts *BrowerTabs) closeTab(id string) {
+
+}
+
+func (bts *BrowerTabs) changeActiveTabUrl(url string, wordWrap int, iskitty bool) {
+	bts.activeTab.changeTabUrl(url, wordWrap, iskitty)
+}
+
+func (bts *BrowerTabs) newTab(url string, wordWrap int, isKitty bool) {
+	var documentNode element.Node
+	var title string
+	var err error
+
+	if url == "" {
+		documentNode, title, err = request.DefaultPage()
+	} else {
+		documentNode, title, err = request.GetUrlAsNode(url)
+	}
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	browserTab := &BrowerTab{
+		document:  documentNode,
+		title:     title,
+		scrollPos: 0,
+		rendered:  "",
+		id:        rand.Int(),
+	}
+
+	browserTab.render(wordWrap, isKitty)
+
+	bts.tabs[browserTab.id] = browserTab
+	bts.activeTabID = browserTab.id
+	bts.activeTab = browserTab
 }
 
 type Browser struct {
@@ -51,16 +124,12 @@ type Browser struct {
 	title        string
 	url          textinput.Model
 	// url          textinput.Model
-	document element.Node
-	rendered string
-	ready    bool
+	ready bool
+	tab   *BrowerTabs
 
-	tabs        []BrowerTab
-	curTabIndex int
-
+	curTabID int
 	viewport viewport.Model
 
-	scrollPos  int
 	activePane int
 }
 
@@ -71,19 +140,6 @@ func main() {
 	kittyFlag := flag.Bool("kitty", true, "Enable Kitty terminal font size extensions.")
 	contentWidth := flag.Int("width", 0, "Content word wrap, default 80")
 	flag.Parse()
-
-	var documentNode element.Node
-	var title string
-
-	if *urlFlag == "" {
-		documentNode, title, err = request.DefaultPage()
-	} else {
-		documentNode, title, err = request.GetUrlAsNode(*urlFlag)
-	}
-
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	zone.NewGlobal()
 	defer zone.Close()
@@ -96,7 +152,13 @@ func main() {
 	}
 
 	ti := textinput.New()
-	ti.PlaceholderStyle = lipgloss.NewStyle().Faint(true)
+	ti.PlaceholderStyle = statusColor
+	ti.TextStyle = statusColor
+	ti.Cursor.Style = statusColor
+	ti.Cursor.TextStyle = statusColor
+	ti.PromptStyle = statusColor
+	ti.CompletionStyle = statusColor
+
 	ti.Placeholder = "Search DuckDuckGo or type Url"
 	ti.SetValue(*urlFlag)
 	ti.Blur()
@@ -105,16 +167,18 @@ func main() {
 	b := Browser{
 		width:        width,
 		height:       height,
-		title:        title,
 		contentWidth: *contentWidth,
 		url:          ti,
-		isKitty:      strings.Contains(termProgram, "kitty") || *kittyFlag,
-		document:     documentNode,
-		scrollPos:    0,
-		ready:        false,
-		activePane:   ACTIVE_VIEWPORT,
+		tab: &BrowerTabs{
+			tabs: make(map[int]*BrowerTab),
+		},
+		isKitty:    strings.Contains(termProgram, "kitty") || *kittyFlag,
+		ready:      false,
+		activePane: ACTIVE_VIEWPORT,
 	}
 	b.wordWrap()
+
+	b.tab.newTab(*urlFlag, b.wordWrap(), b.isKitty)
 
 	p := tea.NewProgram(b, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
@@ -163,16 +227,8 @@ func (b Browser) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			if b.url.Focused() {
 				b.url.Blur()
 				b.activePane = ACTIVE_VIEWPORT
-				documentNode, title, err := request.GetUrlAsNode(b.url.Value())
-
-				if err != nil {
-					log.Fatal(err)
-				}
-				b.document = documentNode
-				b.title = title
-
-				b.rendered = element.WordWrap(b.document.Render(b.isKitty), b.wordWrap())
-				b.viewport.SetContent(b.rendered)
+				b.tab.changeActiveTabUrl(b.url.Value(), b.wordWrap(), b.isKitty)
+				b.viewport.SetContent(b.tab.rendered())
 			}
 		}
 
@@ -188,11 +244,11 @@ func (b Browser) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 
 		b.width = msg.Width
 		b.height = msg.Height
-		b.rendered = element.WordWrap(b.document.Render(b.isKitty), b.wordWrap())
+		b.tab.render(b.wordWrap(), b.isKitty)
 
 		if !b.ready {
 			b.viewport = viewport.New(b.width-5, msg.Height-3)
-			b.viewport.SetContent(b.rendered)
+			b.viewport.SetContent(b.tab.rendered())
 			b.ready = true
 		}
 		//  else {
@@ -200,7 +256,7 @@ func (b Browser) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		// b.viewport.Height = msg.Height - 2
 		// }
 
-		b.url.Width = b.width - 25
+		b.url.Width = b.width - 28
 	}
 
 	if b.activePane == ACTIVE_VIEWPORT {
@@ -229,7 +285,7 @@ func (b Browser) View() string {
 		return "\n  Initializing..."
 	}
 
-	statusBar := statusStyle.Width(b.width - 2).Render(fmt.Sprintf("%s%s%s", logoStyle.Render("Rupi 🐦"), zone.Mark("url_input_bar", statusColor.PaddingLeft(1).Render(b.url.View())), statusColor.Render(fmt.Sprintf("%3.f%%", b.viewport.ScrollPercent()*100))))
+	statusBar := statusStyle.Width(b.width - 2).Render(fmt.Sprintf("%s%s%s%s", logoStyle.Render("Rupi 🐦"), zone.Mark("url_input_bar", statusColor.PaddingLeft(1).Render(b.url.View())), statusColor.Render(fmt.Sprintf("%3.f%%", b.viewport.ScrollPercent()*100)), statusColor.Padding(0, 1).Render("?")))
 
 	title := fmt.Sprintf("%s \n", tytleStyle.Render(b.title))
 	body := fmt.Sprintf("%s\n%s%s", statusBar, title, b.viewport.View())
