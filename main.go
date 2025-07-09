@@ -20,10 +20,10 @@ import (
 )
 
 const (
-	statusBarHeight = 1
+	STAUTS_BAR_HEIGHT = 1
 
-	activeViewPort = iota
-	activeInputUrl
+	ACTIVE_VIEWPORT = iota
+	ACTIVE_INPUT_URL
 )
 
 var (
@@ -37,6 +37,12 @@ var (
 	statusStyle = statusColor.MarginBottom(1)
 )
 
+type BrowerTab struct {
+	id       string
+	document element.Node
+	rendered string
+}
+
 type Browser struct {
 	width        int
 	height       int
@@ -46,8 +52,8 @@ type Browser struct {
 	url          textinput.Model
 	// url          textinput.Model
 	document element.Node
-	ready    bool
 	rendered string
+	ready    bool
 
 	viewport viewport.Model
 
@@ -102,7 +108,7 @@ func main() {
 		document:     documentNode,
 		scrollPos:    0,
 		ready:        false,
-		activePane:   activeViewPort,
+		activePane:   ACTIVE_VIEWPORT,
 	}
 	b.wordWrap()
 
@@ -133,26 +139,26 @@ func (b Browser) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return b, tea.Quit
 		case "q":
-			if b.activePane == activeViewPort {
+			if b.activePane == ACTIVE_VIEWPORT {
 				return b, tea.Quit
 			}
 		case "i":
-			if b.activePane == activeViewPort {
+			if b.activePane == ACTIVE_VIEWPORT {
 				b.url.Focus()
-				b.activePane = activeInputUrl
+				b.activePane = ACTIVE_INPUT_URL
 			} else {
 				b.url.Blur()
-				b.activePane = activeViewPort
+				b.activePane = ACTIVE_VIEWPORT
 			}
 		case "esc":
-			if b.activePane == activeInputUrl {
+			if b.activePane == ACTIVE_INPUT_URL {
 				b.url.Blur()
-				b.activePane = activeViewPort
+				b.activePane = ACTIVE_VIEWPORT
 			}
 		case "enter":
 			if b.url.Focused() {
 				b.url.Blur()
-				b.activePane = activeViewPort
+				b.activePane = ACTIVE_VIEWPORT
 				documentNode, title, err := request.GetUrlAsNode(b.url.Value())
 
 				if err != nil {
@@ -170,7 +176,7 @@ func (b Browser) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Action == tea.MouseActionRelease && msg.Button == tea.MouseButtonLeft {
 			if zone.Get("url_input_bar").InBounds(msg) {
 				b.url.Focus()
-				b.activePane = activeInputUrl
+				b.activePane = ACTIVE_INPUT_URL
 			}
 		}
 
@@ -193,7 +199,7 @@ func (b Browser) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		b.url.Width = b.width - 25
 	}
 
-	if b.activePane == activeViewPort {
+	if b.activePane == ACTIVE_VIEWPORT {
 		b.viewport, cmd = b.viewport.Update(message)
 		cmds = append(cmds, cmd)
 	}
