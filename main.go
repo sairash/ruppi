@@ -55,6 +55,9 @@ type Browser struct {
 	rendered string
 	ready    bool
 
+	tabs        []BrowerTab
+	curTabIndex int
+
 	viewport viewport.Model
 
 	scrollPos  int
@@ -69,13 +72,14 @@ func main() {
 	contentWidth := flag.Int("width", 0, "Content word wrap, default 80")
 	flag.Parse()
 
-	if *urlFlag == "" {
-		fmt.Println("Please provide a URL with the -url flag.")
-		flag.PrintDefaults()
-		os.Exit(1)
-	}
+	var documentNode element.Node
+	var title string
 
-	documentNode, title, err := request.GetUrlAsNode(*urlFlag)
+	if *urlFlag == "" {
+		documentNode, title, err = request.DefaultPage()
+	} else {
+		documentNode, title, err = request.GetUrlAsNode(*urlFlag)
+	}
 
 	if err != nil {
 		log.Fatal(err)
