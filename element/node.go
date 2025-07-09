@@ -26,6 +26,7 @@ const (
 	LI
 	PRE
 	BLOCKQUOTE
+	BR
 	HR
 
 	SPAN
@@ -68,6 +69,7 @@ var TagToType = map[string]uint{
 	"li":         LI,
 	"pre":        PRE,
 	"blockquote": BLOCKQUOTE,
+	"br":         BR,
 	"hr":         HR,
 	"span":       SPAN,
 	"a":          A,
@@ -172,6 +174,8 @@ func (n *Node) renderRecursive(state *renderState, isKitty bool) {
 		finalOutput = lipgloss.NewStyle().Margin(1, 2).Render(content)
 	case HR:
 		finalOutput = HrStyle.Render(strings.Repeat("─", 50))
+	case BR:
+		finalOutput = HrStyle.Render(" ")
 	case STYLE, SCRIPT, IFRAME:
 	default:
 		finalOutput = config.AddStyle(n.Element.Name, content)
@@ -289,7 +293,7 @@ func WordWrap(text string, maxWidth int) string {
 
 func isBlockElement(nodeType uint) bool {
 	switch nodeType {
-	case H1, H2, H3, H4, H5, H6, P, DIV, UL, OL, LI, PRE, BLOCKQUOTE, HR, ROOT:
+	case H1, H2, H3, H4, H5, H6, P, DIV, UL, OL, LI, PRE, BLOCKQUOTE, HR, ROOT, BR:
 		return true
 	default:
 		return false
