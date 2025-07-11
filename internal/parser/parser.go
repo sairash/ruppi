@@ -2,17 +2,17 @@ package parser
 
 import (
 	"io"
-	"rupi/element"
+	"rupi/internal/dom"
 	"strings"
 
 	"golang.org/x/net/html"
 )
 
-func Parse(r io.Reader) (element.Node, string, error) {
+func Parse(r io.Reader) (dom.Node, string, error) {
 	doc, err := html.Parse(r)
 	if err != nil {
 
-		return element.Node{}, "", err
+		return dom.Node{}, "", err
 	}
 
 	transformedNode, title := transform(doc)
@@ -20,38 +20,38 @@ func Parse(r io.Reader) (element.Node, string, error) {
 	return transformedNode, title, nil
 }
 
-func transform(n *html.Node) (element.Node, string) {
+func transform(n *html.Node) (dom.Node, string) {
 	var foundTitle string
 
 	if n.Type == html.TextNode {
 		trimmedData := strings.TrimSpace(n.Data)
 		if trimmedData == "" {
 
-			return element.Node{Element: element.ElementData{NodeType: element.TEXT}, InnerText: ""}, ""
+			return dom.Node{Element: dom.ElementData{NodeType: dom.TEXT}, InnerText: ""}, ""
 		}
 
-		return element.Node{Element: element.ElementData{NodeType: element.TEXT}, InnerText: n.Data}, ""
+		return dom.Node{Element: dom.ElementData{NodeType: dom.TEXT}, InnerText: n.Data}, ""
 	}
 
 	if n.Type == html.ElementNode || n.Type == html.DocumentNode {
 
 		if n.Type == html.ElementNode && n.Data == "title" && n.FirstChild != nil && n.FirstChild.Type == html.TextNode {
 			foundTitle = n.FirstChild.Data
-			return element.Node{}, foundTitle
+			return dom.Node{}, foundTitle
 		}
 
-		nodeType, ok := element.TagToType[n.Data]
+		nodeType, ok := dom.TagToType[n.Data]
 		if !ok {
 
 			if isBlockTag(n.Data) {
-				nodeType = element.DIV
+				nodeType = dom.DIV
 			} else {
-				nodeType = element.SPAN
+				nodeType = dom.SPAN
 			}
 		}
 
-		newNode := element.Node{
-			Element: element.ElementData{
+		newNode := dom.Node{
+			Element: dom.ElementData{
 				NodeType: nodeType,
 				Name:     n.Data,
 				Attrs:    make(map[string]string),
@@ -69,7 +69,7 @@ func transform(n *html.Node) (element.Node, string) {
 				foundTitle = childTitle
 			}
 
-			if childNode.Element.NodeType == element.TEXT && childNode.InnerText == "" {
+			if childNode.Element.NodeType == dom.TEXT && childNode.InnerText == "" {
 				continue
 			}
 			newNode.Children = append(newNode.Children, childNode)
@@ -78,7 +78,7 @@ func transform(n *html.Node) (element.Node, string) {
 		return newNode, foundTitle
 	}
 
-	return element.Node{Element: element.ElementData{NodeType: element.TEXT}, InnerText: ""}, ""
+	return dom.Node{Element: dom.ElementData{NodeType: dom.TEXT}, InnerText: ""}, ""
 }
 
 func isBlockTag(tag string) bool {

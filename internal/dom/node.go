@@ -1,8 +1,8 @@
-package element
+package dom
 
 import (
 	"fmt"
-	"rupi/config"
+	"rupi/internal/config"
 	"strings"
 	"unicode/utf8"
 
