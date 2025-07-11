@@ -41,6 +41,8 @@ const (
 	STYLE
 	SCRIPT
 	IFRAME
+
+	INPUT
 )
 
 var (
@@ -49,6 +51,9 @@ var (
 	BlockquoteStyle = lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).BorderLeft(true).PaddingLeft(1).MarginLeft(2)
 	LinkStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("32")).Underline(true)
 	HrStyle         = lipgloss.NewStyle().Faint(true)
+
+	InputStyle           = lipgloss.NewStyle().Background(lipgloss.Color("#242424")).Faint(true)
+	InputBackgroundStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#242424"))
 
 	NoStyle = lipgloss.NewStyle()
 
@@ -82,6 +87,7 @@ var TagToType = map[string]uint{
 	"style":      STYLE,
 	"script":     SCRIPT,
 	"iframe":     IFRAME,
+	"input":      INPUT,
 }
 
 type Node struct {
@@ -177,6 +183,10 @@ func (n *Node) renderRecursive(state *renderState, isKitty bool) {
 	case BR:
 		finalOutput = HrStyle.Render(" ")
 	case STYLE, SCRIPT, IFRAME:
+
+	case INPUT:
+		// TODO: Make this input system better
+		finalOutput = InputBackgroundStyle.Render("█") + InputStyle.Render(n.Element.Attrs["placeholder"]) + InputBackgroundStyle.Render(strings.Repeat("█", 10))
 	default:
 		finalOutput = config.AddStyle(n.Element.Name, content)
 	}

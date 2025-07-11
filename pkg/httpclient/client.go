@@ -15,6 +15,7 @@ const (
 <h1>This is the default Page</h1>
 <hr>
 <p>What can I do here?</p>
+<input placeholder="" />
 <ul>
 	<li>use <code>i</code> or click on the url bar.</li>
     <li>use <code>h</code> to get help.</li>
