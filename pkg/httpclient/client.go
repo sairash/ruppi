@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	defaultPageString = `<title>Page Title</title>
+	defaultPageString = `<title>Ruppi 🐦</title>
 <br>
 <h1>This is the default Page</h1>
 <hr>

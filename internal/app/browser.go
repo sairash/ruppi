@@ -15,6 +15,8 @@ import (
 type active_session int
 
 const (
+	ruppiUIBufferSize = 5
+
 	ACTIVE_VIEWPORT active_session = iota
 	ACTIVE_INPUT_URL
 )
@@ -30,6 +32,11 @@ type Browser struct {
 	Viewport   viewport.Model
 	Tabs       *Tabs
 	ActivePane active_session
+}
+
+func (b Browser) NewTab(url string) {
+	b.Tabs.NewTab("", b.WordWrap(), b.IsKitty)
+	b.Viewport.SetContent(b.Tabs.Rendered())
 }
 
 func (b Browser) Init() tea.Cmd {
@@ -73,7 +80,7 @@ func (b Browser) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.MouseMsg:
 		if msg.Action == tea.MouseActionRelease && msg.Button == tea.MouseButtonLeft {
 			if zone.Get("new_tab").InBounds(msg) {
-				b.Tabs.NewTab("", b.WordWrap(), b.IsKitty)
+				b.NewTab("")
 			}
 			if zone.Get("url_input_bar").InBounds(msg) {
 				b.ActivePane = ACTIVE_INPUT_URL
@@ -88,15 +95,15 @@ func (b Browser) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		b.Tabs.Render(b.WordWrap(), b.IsKitty)
 
 		if !b.Ready {
-			b.Viewport = viewport.New(b.Width, msg.Height-10)
+			b.Viewport = viewport.New(b.Width, msg.Height-ruppiUIBufferSize)
 			b.Viewport.SetContent(b.Tabs.Rendered())
 			b.Ready = true
 		} else {
 			b.Viewport.Width = msg.Width
-			b.Viewport.Height = msg.Height - 3
+			b.Viewport.Height = msg.Height - ruppiUIBufferSize
 		}
 
-		b.Url.Width = b.Width - 28
+		b.Url.Width = b.Width - 27
 	}
 
 	if b.ActivePane == ACTIVE_VIEWPORT {
@@ -112,10 +119,9 @@ func (b Browser) View() string {
 		return "\n  Initializing..."
 	}
 
-	statusBar := style.StatusStyle.Width(b.Width - 2).Render(fmt.Sprintf("%s%s%s%s", style.LogoStyle.Render("ruppi 🐦"), zone.Mark("url_input_bar", style.StatusColor.PaddingLeft(1).Render(b.Url.View())), style.StatusColor.Render(fmt.Sprintf("%3.f%%", b.Viewport.ScrollPercent()*100)), style.LogoStyle.Render("?")))
-	tabs := b.Tabs.ShowTabs(b.Width)
-	title := fmt.Sprintf("%s \n %s \n", tabs, style.TitleStyle.Render(b.Tabs.activeTab.title))
-	body := fmt.Sprintf("%s\n%s%s", statusBar, title, b.Viewport.View())
+	statusBar := style.StatusStyle.Width(b.Width - 2).Render(fmt.Sprintf("%s%s%s%s", style.LogoStyle.Render("Ruppi 🐦"), zone.Mark("url_input_bar", style.StatusColor.PaddingLeft(1).Render(b.Url.View())), style.StatusColor.PaddingRight(1).Render(fmt.Sprintf("%3.f%%", b.Viewport.ScrollPercent()*100)), style.LogoStyle.Render("?")))
+	tabs := lipgloss.NewStyle().MarginBottom(1).Render(b.Tabs.ShowTabs(b.Width))
+	body := fmt.Sprintf("%s%s%s", tabs, statusBar, b.Viewport.View())
 	return zone.Scan(lipgloss.Place(b.Width, b.Height, lipgloss.Left, lipgloss.Top, style.AppStyle.Width(b.Width).Render(body)))
 }
 

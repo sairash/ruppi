@@ -13,6 +13,10 @@ import (
 	zone "github.com/lrstanley/bubblezone"
 )
 
+const (
+	TRUNCATE_MIN = 13
+)
+
 var (
 	tabPrefixNumber = []rune("🯰🯱🯲🯳🯴🯵🯶🯷🯸🯹")
 )
@@ -79,12 +83,25 @@ func (ts *Tabs) ChangeActiveTabURL(url string, wordWrap int, isKitty bool) {
 
 func (ts *Tabs) ShowTabs(width int) string {
 	tab_str := strings.Builder{}
+	tabContainerWidth := width - 14
 	k := 0
-	for _, tab := range ts.Tabs {
-		tab_str.WriteString(style.StatusColor.MarginRight(1).Render(style.PaddingX.Render(string(tabPrefixNumber[k])) + helper.TruncateString(tab.title, 10, true) + style.PaddingX.Render("𜸲")))
+
+	TabBackgroundColor := "#202020"
+	for id, tab := range ts.Tabs {
+		if id == ts.activeTabID {
+			TabBackgroundColor = "#3a3a3a"
+		} else {
+			TabBackgroundColor = "#202020"
+		}
+
+		tab_str.WriteString(style.TabContainerColor.PaddingRight(1).Render(lipgloss.NewStyle().Background(lipgloss.Color(TabBackgroundColor)).Render(style.PaddingX.Render(string(tabPrefixNumber[k])) + helper.TruncateString(tab.title, 10, true) + style.PaddingX.Render("𜸲"))))
 		k += 1
 	}
-	return tab_str.String() + zone.Mark("new_tab", style.PaddingX.Background(lipgloss.Color("76")).Render("𜸺"))
+
+	return zone.Mark("go_previous_tab", style.PaddingX.Foreground(lipgloss.NoColor{}).MarginRight(1).Background(lipgloss.Color("30")).Render("<")) +
+		style.TabContainerColor.Width(tabContainerWidth).Render(tab_str.String()) +
+		zone.Mark("go_next_tab", style.PaddingX.Foreground(lipgloss.NoColor{}).Margin(0, 1).Background(lipgloss.Color("30")).Render(">")) +
+		zone.Mark("new_tab", style.PaddingX.Foreground(lipgloss.NoColor{}).Background(lipgloss.Color("30")).Render("+"))
 }
 
 func (ts *Tabs) NewTab(url string, wordWrap int, isKitty bool) {
