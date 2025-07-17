@@ -3,8 +3,18 @@ package app
 import (
 	"log"
 	"math/rand"
-	"rupi/internal/dom"
-	"rupi/pkg/httpclient"
+	"ruppi/internal/dom"
+	"ruppi/pkg/helper"
+	"ruppi/pkg/httpclient"
+	"ruppi/pkg/style"
+	"strings"
+
+	"github.com/charmbracelet/lipgloss"
+	zone "github.com/lrstanley/bubblezone"
+)
+
+var (
+	tabPrefixNumber = []rune("🯰🯱🯲🯳🯴🯵🯶🯷🯸🯹")
 )
 
 type Tab struct {
@@ -63,6 +73,18 @@ func (ts *Tabs) ChangeActiveTabURL(url string, wordWrap int, isKitty bool) {
 	if ts.activeTab != nil {
 		ts.activeTab.ChangeURL(url, wordWrap, isKitty)
 	}
+}
+
+// func merge()
+
+func (ts *Tabs) ShowTabs(width int) string {
+	tab_str := strings.Builder{}
+	k := 0
+	for _, tab := range ts.Tabs {
+		tab_str.WriteString(style.StatusColor.MarginRight(1).Render(style.PaddingX.Render(string(tabPrefixNumber[k])) + helper.TruncateString(tab.title, 10, true) + style.PaddingX.Render("𜸲")))
+		k += 1
+	}
+	return tab_str.String() + zone.Mark("new_tab", style.PaddingX.Background(lipgloss.Color("76")).Render("𜸺"))
 }
 
 func (ts *Tabs) NewTab(url string, wordWrap int, isKitty bool) {

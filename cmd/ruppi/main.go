@@ -4,9 +4,9 @@ import (
 	"flag"
 	"log"
 	"os"
-	"rupi/internal/app"
-	"rupi/internal/config"
-	"rupi/pkg/style"
+	"ruppi/internal/app"
+	"ruppi/internal/config"
+	"ruppi/pkg/style"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -16,7 +16,7 @@ import (
 )
 
 func main() {
-	if err := config.LoadConfig("./config/rupi.conf.example"); err != nil {
+	if err := config.LoadConfig("./config/ruppi.conf.example"); err != nil {
 		log.Printf("Could not load config file: %v. Using default values.", err)
 	}
 

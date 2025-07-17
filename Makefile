@@ -1,6 +1,6 @@
 OUTPUT_DIR := binary
-BINARY_NAME := rupi
-MAIN_PATH := ./cmd/rupi/main.go
+BINARY_NAME := ruppi
+MAIN_PATH := ./cmd/ruppi/main.go
 
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
 

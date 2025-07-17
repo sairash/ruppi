@@ -1,4 +1,4 @@
-# Rupi 🐦
+# Ruppi 🐦
 A wip simple terminal Web browser written in golang!
 
 TODO:

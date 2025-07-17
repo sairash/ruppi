@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"rupi/internal/dom"
-	"rupi/internal/parser"
+	"ruppi/internal/dom"
+	"ruppi/internal/parser"
 	"strings"
 )
 
@@ -15,11 +15,10 @@ const (
 <h1>This is the default Page</h1>
 <hr>
 <p>What can I do here?</p>
-<input placeholder="" />
 <ul>
 	<li>use <code>i</code> or click on the url bar.</li>
     <li>use <code>h</code> to get help.</li>
-    <li>use <code>q</code> to quit Rupi.</li>
+    <li>use <code>q</code> to quit ruppi.</li>
 </ul>
 <hr>
 `

@@ -2,8 +2,8 @@ package app
 
 import (
 	"fmt"
-	"rupi/pkg/httpclient"
-	"rupi/pkg/style"
+	"ruppi/pkg/httpclient"
+	"ruppi/pkg/style"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -72,6 +72,9 @@ func (b Browser) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.MouseMsg:
 		if msg.Action == tea.MouseActionRelease && msg.Button == tea.MouseButtonLeft {
+			if zone.Get("new_tab").InBounds(msg) {
+				b.Tabs.NewTab("", b.WordWrap(), b.IsKitty)
+			}
 			if zone.Get("url_input_bar").InBounds(msg) {
 				b.ActivePane = ACTIVE_INPUT_URL
 				cmds = append(cmds, b.Url.Focus())
@@ -85,7 +88,7 @@ func (b Browser) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		b.Tabs.Render(b.WordWrap(), b.IsKitty)
 
 		if !b.Ready {
-			b.Viewport = viewport.New(b.Width, msg.Height-3)
+			b.Viewport = viewport.New(b.Width, msg.Height-10)
 			b.Viewport.SetContent(b.Tabs.Rendered())
 			b.Ready = true
 		} else {
@@ -109,9 +112,9 @@ func (b Browser) View() string {
 		return "\n  Initializing..."
 	}
 
-	statusBar := style.StatusStyle.Width(b.Width - 2).Render(fmt.Sprintf("%s%s%s%s", style.LogoStyle.Render("Rupi 🐦"), zone.Mark("url_input_bar", style.StatusColor.PaddingLeft(1).Render(b.Url.View())), style.StatusColor.Render(fmt.Sprintf("%3.f%%", b.Viewport.ScrollPercent()*100)), style.StatusColor.Padding(0, 1).Render("?")))
-
-	title := fmt.Sprintf("%s \n", style.TitleStyle.Render(b.Tabs.activeTab.title))
+	statusBar := style.StatusStyle.Width(b.Width - 2).Render(fmt.Sprintf("%s%s%s%s", style.LogoStyle.Render("ruppi 🐦"), zone.Mark("url_input_bar", style.StatusColor.PaddingLeft(1).Render(b.Url.View())), style.StatusColor.Render(fmt.Sprintf("%3.f%%", b.Viewport.ScrollPercent()*100)), style.LogoStyle.Render("?")))
+	tabs := b.Tabs.ShowTabs(b.Width)
+	title := fmt.Sprintf("%s \n %s \n", tabs, style.TitleStyle.Render(b.Tabs.activeTab.title))
 	body := fmt.Sprintf("%s\n%s%s", statusBar, title, b.Viewport.View())
 	return zone.Scan(lipgloss.Place(b.Width, b.Height, lipgloss.Left, lipgloss.Top, style.AppStyle.Width(b.Width).Render(body)))
 }

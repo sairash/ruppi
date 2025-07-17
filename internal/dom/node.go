@@ -2,7 +2,7 @@ package dom
 
 import (
 	"fmt"
-	"rupi/internal/config"
+	"ruppi/internal/config"
 	"strings"
 	"unicode/utf8"
 

@@ -1,4 +1,4 @@
-module rupi
+module ruppi
 
 go 1.24.3
 

@@ -20,7 +20,7 @@ type StyleInfo struct {
 type StyleMap map[string]StyleInfo
 
 var (
-	RupiConfig = make(StyleMap)
+	ruppiConfig = make(StyleMap)
 )
 
 func parseKeyValue(line string, info StyleInfo) (StyleInfo, error) {
@@ -142,7 +142,7 @@ func parseHex(s string) string {
 
 func AddStyle(tag string, content string) string {
 
-	if val, has := RupiConfig[tag]; has {
+	if val, has := ruppiConfig[tag]; has {
 		return val.Style.Render(val.Prefix + content + val.Infix)
 	}
 
@@ -169,7 +169,7 @@ func LoadConfig(path string) error {
 
 		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
 			if currentTag != "" {
-				RupiConfig[currentTag] = currentInfo
+				ruppiConfig[currentTag] = currentInfo
 			}
 
 			currentTag = strings.Trim(line, "[]")
@@ -184,7 +184,7 @@ func LoadConfig(path string) error {
 	}
 
 	if currentTag != "" {
-		RupiConfig[currentTag] = currentInfo
+		ruppiConfig[currentTag] = currentInfo
 	}
 
 	if err := scanner.Err(); err != nil {

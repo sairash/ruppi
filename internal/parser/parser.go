@@ -2,7 +2,7 @@ package parser
 
 import (
 	"io"
-	"rupi/internal/dom"
+	"ruppi/internal/dom"
 	"strings"
 
 	"golang.org/x/net/html"
