@@ -34,11 +34,6 @@ type Browser struct {
 	ActivePane active_session
 }
 
-func (b Browser) NewTab(url string) {
-	b.Tabs.NewTab("", b.WordWrap(), b.IsKitty)
-	b.Viewport.SetContent(b.Tabs.Rendered())
-}
-
 func (b Browser) Init() tea.Cmd {
 	return nil
 }
@@ -58,7 +53,7 @@ func (b Browser) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if b.Url.Focused() {
 			switch msg.String() {
 			case "enter":
-				b.submitURL()
+				cmds = append(cmds, b.submitURL())
 			case "esc":
 				b.Url.Blur()
 				b.ActivePane = ACTIVE_VIEWPORT
@@ -77,14 +72,33 @@ func (b Browser) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return b, b.Url.Focus()
 		}
 
+	case updateURL:
+		b.Url.SetValue(string(msg))
+	case newTabMsg:
+		b.Tabs.NewTab(string(msg), b.WordWrap(), b.IsKitty)
+		cmds = append(cmds, updateURLCmd(b.Tabs.ActiveTab().url))
+		b.Viewport.SetContent(b.Tabs.Rendered())
+		b.Viewport.GotoTop()
+	case changeTabMsg:
+		b.Tabs.ChangeTab(int(msg))
+		cmds = append(cmds, updateURLCmd(b.Tabs.ActiveTab().url))
+		b.Viewport.SetContent(b.Tabs.Rendered())
+		b.Viewport.GotoTop()
 	case tea.MouseMsg:
 		if msg.Action == tea.MouseActionRelease && msg.Button == tea.MouseButtonLeft {
 			if zone.Get("new_tab").InBounds(msg) {
-				b.NewTab("")
+				cmds = append(cmds, createNewTabCmd(""))
 			}
 			if zone.Get("url_input_bar").InBounds(msg) {
 				b.ActivePane = ACTIVE_INPUT_URL
 				cmds = append(cmds, b.Url.Focus())
+			}
+
+			for i := 0; i <= b.Tabs.TotalTabCount; i++ {
+				if zone.Get(fmt.Sprintf("%s%d", TAB_ID, i)).InBounds(msg) {
+					cmds = append(cmds, createChangeTabCmd(i))
+					break
+				}
 			}
 		}
 
@@ -136,7 +150,7 @@ func (b *Browser) WordWrap() int {
 	return contentWidth
 }
 
-func (b *Browser) submitURL() {
+func (b *Browser) submitURL() tea.Cmd {
 	b.Url.Blur()
 	b.ActivePane = ACTIVE_VIEWPORT
 	url := b.Url.Value()
@@ -151,4 +165,5 @@ func (b *Browser) submitURL() {
 	b.Tabs.ChangeActiveTabURL(finalURL, b.WordWrap(), b.IsKitty)
 	b.Viewport.SetContent(b.Tabs.Rendered())
 	b.Viewport.GotoTop()
+	return updateURLCmd(finalURL)
 }

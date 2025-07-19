@@ -70,7 +70,7 @@ func NewBrowser(width, height, contentWidth int, isKitty bool) app.Browser {
 		ContentWidth: contentWidth,
 		Url:          ti,
 		Tabs: &app.Tabs{
-			Tabs: make(map[int]*app.Tab),
+			Tabs: []*app.Tab{},
 		},
 		IsKitty:    isKitty,
 		Ready:      false,

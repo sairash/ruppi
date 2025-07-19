@@ -1,8 +1,8 @@
 package app
 
 import (
+	"fmt"
 	"log"
-	"math/rand"
 	"ruppi/internal/dom"
 	"ruppi/pkg/helper"
 	"ruppi/pkg/httpclient"
@@ -14,11 +14,13 @@ import (
 )
 
 const (
-	TRUNCATE_MIN = 13
+	TRUNCATE_MIN_WIDTH       = 13
+	REMOVE_EXTRA_TAB_BUTTONS = 14
+	MAX_TABS_IN_PAGE         = 10
 )
 
 var (
-	tabPrefixNumber = []rune("🯰🯱🯲🯳🯴🯵🯶🯷🯸🯹")
+	tabPrefixNumber = []rune("🯱🯲🯳🯴🯵🯶🯷🯸🯹")
 )
 
 type Tab struct {
@@ -28,6 +30,7 @@ type Tab struct {
 	title         string
 	scrollPos     float64
 	renderedWidth int
+	url           string
 }
 
 func (t *Tab) Render(wordwrap int, isKitty bool) {
@@ -43,14 +46,16 @@ func (t *Tab) ChangeURL(url string, wordWrap int, isKitty bool) {
 	}
 	t.document = documentNode
 	t.title = title
+	t.url = url
 
 	t.Render(wordWrap, isKitty)
 }
 
 type Tabs struct {
-	Tabs        map[int]*Tab
-	activeTab   *Tab
-	activeTabID int
+	Tabs          []*Tab
+	TotalTabCount int
+	activeTab     *Tab
+	activeTabID   int
 }
 
 func (ts *Tabs) Render(wordWrap int, isKitty bool) {
@@ -61,8 +66,9 @@ func (ts *Tabs) Render(wordWrap int, isKitty bool) {
 
 func (ts *Tabs) Rendered() string {
 	if ts.activeTab == nil {
-		return ""
+		return "Initializing..."
 	}
+
 	return ts.activeTab.rendered
 }
 
@@ -79,22 +85,27 @@ func (ts *Tabs) ChangeActiveTabURL(url string, wordWrap int, isKitty bool) {
 	}
 }
 
-// func merge()
-
 func (ts *Tabs) ShowTabs(width int) string {
 	tab_str := strings.Builder{}
-	tabContainerWidth := width - 14
-	k := 0
+	tabContainerWidth := width - REMOVE_EXTRA_TAB_BUTTONS
 
-	TabBackgroundColor := "#202020"
+	tabsWidth := TRUNCATE_MIN_WIDTH
+	tabsThatCanBeContained := tabContainerWidth / TRUNCATE_MIN_WIDTH
+
+	if tabsThatCanBeContained >= MAX_TABS_IN_PAGE {
+		tabsWidth = tabContainerWidth / MAX_TABS_IN_PAGE
+	}
+
+	k := 0
+	tabBackgroundColor := "#202020"
 	for id, tab := range ts.Tabs {
 		if id == ts.activeTabID {
-			TabBackgroundColor = "#3a3a3a"
+			tabBackgroundColor = "#3a3a3a"
 		} else {
-			TabBackgroundColor = "#202020"
+			tabBackgroundColor = "#202020"
 		}
 
-		tab_str.WriteString(style.TabContainerColor.PaddingRight(1).Render(lipgloss.NewStyle().Background(lipgloss.Color(TabBackgroundColor)).Render(style.PaddingX.Render(string(tabPrefixNumber[k])) + helper.TruncateString(tab.title, 10, true) + style.PaddingX.Render("𜸲"))))
+		tab_str.WriteString(style.TabContainerColor.PaddingRight(1).Render(lipgloss.NewStyle().Background(lipgloss.Color(tabBackgroundColor)).Render(zone.Mark(fmt.Sprintf("%s%d", TAB_ID, k), style.PaddingX.Render(string(tabPrefixNumber[k]))+helper.TruncateString(tab.title, tabsWidth-6, true)) + style.PaddingX.Render("𜸲"))))
 		k += 1
 	}
 
@@ -102,6 +113,11 @@ func (ts *Tabs) ShowTabs(width int) string {
 		style.TabContainerColor.Width(tabContainerWidth).Render(tab_str.String()) +
 		zone.Mark("go_next_tab", style.PaddingX.Foreground(lipgloss.NoColor{}).Margin(0, 1).Background(lipgloss.Color("30")).Render(">")) +
 		zone.Mark("new_tab", style.PaddingX.Foreground(lipgloss.NoColor{}).Background(lipgloss.Color("30")).Render("+"))
+}
+
+func (ts *Tabs) ChangeTab(id int) {
+	ts.activeTab = ts.Tabs[id]
+	ts.activeTabID = id
 }
 
 func (ts *Tabs) NewTab(url string, wordWrap int, isKitty bool) {
@@ -121,15 +137,17 @@ func (ts *Tabs) NewTab(url string, wordWrap int, isKitty bool) {
 	}
 
 	tab := &Tab{
-		id:        rand.Int(),
+		id:        len(ts.Tabs),
 		document:  documentNode,
 		title:     title,
 		scrollPos: 0,
+		url:       url,
 	}
 
 	tab.Render(wordWrap, isKitty)
+	ts.TotalTabCount = len(ts.Tabs)
 
-	ts.Tabs[tab.id] = tab
+	ts.Tabs = append(ts.Tabs, tab)
 	ts.activeTabID = tab.id
 	ts.activeTab = tab
 }
