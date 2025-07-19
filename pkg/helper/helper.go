@@ -1,15 +1,20 @@
 package helper
 
+import "strings"
+
 // Truncate adds 3(.) ie: ... at the end of the string
 func TruncateString(input string, maxLength int, truncate bool) string {
-	inputRune := []rune(input)
-
 	if maxLength < 0 {
 		return input
 	}
 
-	if len(inputRune) < maxLength {
-		return input
+	inputRune := []rune(input)
+	lengthOfInput := len(inputRune)
+
+	if lengthOfInput == maxLength {
+	}
+	if lengthOfInput <= maxLength {
+		return input + strings.Repeat(" ", maxLength-lengthOfInput)
 	}
 
 	end := ""
