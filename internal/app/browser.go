@@ -5,6 +5,7 @@ import (
 	"ruppi/internal/logger"
 	"ruppi/pkg/httpclient"
 	"ruppi/pkg/style"
+	"strconv"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -117,6 +118,8 @@ func (b Browser) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		b.Viewport.SetContent(b.Tabs.Rendered())
 		b.Viewport.GotoTop()
 	case changeTabMsg:
+		b.Logger.Add(strconv.Itoa(int(msg)))
+		b.Logger.Add(strconv.Itoa(b.Tabs.visibleTabStartIndex))
 		b.Tabs.ChangeTab(int(msg))
 		cmds = append(cmds, updateURLCmd(b.Tabs.ActiveTab().url))
 		b.Viewport.SetContent(b.Tabs.Rendered())
@@ -130,6 +133,18 @@ func (b Browser) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				b.Logger.Add("New tab button clicked")
 				cmds = append(cmds, createNewTabCmd(""))
 			}
+
+			if zone.Get("go_previous_tab").InBounds(msg) {
+				b.Logger.Add("Left tab button clicked")
+				b.Tabs.MoveLeft()
+
+			}
+
+			if zone.Get("go_next_tab").InBounds(msg) {
+				b.Logger.Add("Right tab button clicked")
+				b.Tabs.MoveRight()
+			}
+
 			if zone.Get("url_input_bar").InBounds(msg) {
 				b.Logger.Add("URL input bar clicked")
 				b.ActivePane = ACTIVE_INPUT_URL
@@ -138,6 +153,7 @@ func (b Browser) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			for i := 0; i <= b.Tabs.TotalTabCount; i++ {
 				if zone.Get(fmt.Sprintf("%s%d", TAB_ID, i)).InBounds(msg) {
+					b.Logger.Add(fmt.Sprintf("%s%d", TAB_ID, i))
 					cmds = append(cmds, createChangeTabCmd(i))
 					break
 				}

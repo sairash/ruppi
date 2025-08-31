@@ -20,17 +20,21 @@ const (
 )
 
 var (
-	tabPrefixNumber = []rune("🯱🯲🯳🯴🯵🯶🯷🯸🯹")
+	tabPrefixNumber     = []rune("🯱🯲🯳🯴🯵🯶🯷🯸🯹")
+	inactiveButtonColor = lipgloss.Color("3")
+	activeButtonColor   = lipgloss.Color("30")
 )
 
 type Tab struct {
-	id            int
-	document      dom.Node
-	rendered      string
-	title         string
-	scrollPos     int
-	renderedWidth int
-	url           string
+	id              int
+	backgroundColor string
+	foregroudColor  string
+	document        dom.Node
+	rendered        string
+	title           string
+	scrollPos       int
+	renderedWidth   int
+	url             string
 }
 
 func (t *Tab) Render(wordwrap int, isKitty bool) {
@@ -56,15 +60,11 @@ func (t *Tab) ChangeURL(url string, wordWrap int, isKitty bool) {
 }
 
 type Tabs struct {
-	Tabs          []*Tab
-	TotalTabCount int
-	activeTab     *Tab
-	activeTabID   int
-
-	showingTabsIndex struct {
-		from int
-		to   int
-	}
+	Tabs                 []*Tab
+	TotalTabCount        int
+	activeTab            *Tab
+	activeTabID          int
+	visibleTabStartIndex int
 }
 
 func (ts *Tabs) Render(wordWrap int, isKitty bool) {
@@ -107,30 +107,56 @@ func (ts *Tabs) ShowTabs(width int) string {
 	}
 
 	k := 0
-	tabBackgroundColor := "#202020"
-	for id, tab := range ts.Tabs {
+	for i := ts.visibleTabStartIndex; i < len(ts.Tabs); i++ {
+		tab := ts.Tabs[i]
+
 		if k >= tabsThatCanBeContained {
 			break
 		}
-		if id == ts.activeTabID {
+
+		tabBackgroundColor := tab.backgroundColor
+		tabForegroundColor := tab.foregroudColor
+
+		if tab.id == ts.activeTabID {
 			tabBackgroundColor = "#3a3a3a"
-		} else {
-			tabBackgroundColor = "#202020"
+			tabForegroundColor = "#ffffff"
 		}
 
-		tab_str.WriteString(style.TabContainerColor.PaddingRight(1).Render(lipgloss.NewStyle().Background(lipgloss.Color(tabBackgroundColor)).Render(zone.Mark(fmt.Sprintf("%s%d", TAB_ID, k), style.PaddingX.Render(string(tabPrefixNumber[k]))+helper.TruncateString(tab.title, tabsWidth-6, true)) + style.PaddingX.Render("x"))))
+		tab_str.WriteString(style.TabContainerColor.PaddingRight(1).Render(lipgloss.NewStyle().Background(lipgloss.Color(tabBackgroundColor)).Foreground(lipgloss.Color(tabForegroundColor)).Render(zone.Mark(fmt.Sprintf("%s%d", TAB_ID, k), style.PaddingX.Render(string(tabPrefixNumber[k]))+helper.TruncateString(tab.title, tabsWidth-6, true)) + style.PaddingX.Render("x"))))
 		k += 1
 	}
 
-	return zone.Mark("go_previous_tab", style.PaddingX.Foreground(lipgloss.NoColor{}).MarginRight(1).Background(lipgloss.Color("30")).Render("<")) +
+	moveLeftButtonColor := inactiveButtonColor
+	if ts.visibleTabStartIndex > 0 {
+		moveLeftButtonColor = activeButtonColor
+	}
+
+	moveRightButtonColor := inactiveButtonColor
+	if ts.visibleTabStartIndex+MAX_TABS_IN_PAGE < len(ts.Tabs) {
+		moveRightButtonColor = activeButtonColor
+	}
+
+	return zone.Mark("go_previous_tab", style.PaddingX.Foreground(lipgloss.NoColor{}).MarginRight(1).Background(moveLeftButtonColor).Render("<")) +
 		style.TabContainerColor.Width(tabContainerWidth).Render(tab_str.String()) +
-		zone.Mark("go_next_tab", style.PaddingX.Foreground(lipgloss.NoColor{}).Margin(0, 1).Background(lipgloss.Color("30")).Render(">")) +
+		zone.Mark("go_next_tab", style.PaddingX.Foreground(lipgloss.NoColor{}).Margin(0, 1).Background(moveRightButtonColor).Render(">")) +
 		zone.Mark("new_tab", style.PaddingX.Foreground(lipgloss.NoColor{}).Background(lipgloss.Color("30")).Render("+"))
 }
 
+func (ts *Tabs) MoveLeft() {
+	if ts.visibleTabStartIndex > 0 {
+		ts.visibleTabStartIndex -= 1
+	}
+}
+
+func (ts *Tabs) MoveRight() {
+	if ts.visibleTabStartIndex+MAX_TABS_IN_PAGE < len(ts.Tabs) {
+		ts.visibleTabStartIndex += 1
+	}
+}
+
 func (ts *Tabs) ChangeTab(id int) {
-	ts.activeTab = ts.Tabs[id]
-	ts.activeTabID = id
+	ts.activeTab = ts.Tabs[ts.visibleTabStartIndex+id]
+	ts.activeTabID = ts.visibleTabStartIndex + id
 }
 
 func (ts *Tabs) NewTab(url string, wordWrap int, isKitty bool) {
@@ -149,12 +175,16 @@ func (ts *Tabs) NewTab(url string, wordWrap int, isKitty bool) {
 		documentNode, title, _ = httpclient.ErrorPage(err)
 	}
 
+	background, foregroud := helper.ColorGenerator()
+
 	tab := &Tab{
-		id:        len(ts.Tabs),
-		document:  documentNode,
-		title:     title,
-		scrollPos: 0,
-		url:       url,
+		id:              len(ts.Tabs),
+		backgroundColor: background,
+		foregroudColor:  foregroud,
+		document:        documentNode,
+		title:           title,
+		scrollPos:       0,
+		url:             url,
 	}
 
 	tab.Render(wordWrap, isKitty)
@@ -163,6 +193,11 @@ func (ts *Tabs) NewTab(url string, wordWrap int, isKitty bool) {
 	ts.Tabs = append(ts.Tabs, tab)
 	ts.activeTabID = tab.id
 	ts.activeTab = tab
+
+	changeVisibleTabIndex := ts.TotalTabCount + 1 - MAX_TABS_IN_PAGE
+	if changeVisibleTabIndex >= 0 {
+		ts.visibleTabStartIndex = changeVisibleTabIndex
+	}
 }
 
 func (ts *Tabs) SetScrollPos(pos int) {
