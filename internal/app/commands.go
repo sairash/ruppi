@@ -10,7 +10,7 @@ type updateScrollPosition int
 type updateURL string
 type newTabMsg string
 type changeTabMsg int
-type logMsg []string
+type refreshViewport bool
 
 func updateScrollPositionCmd(line int) tea.Cmd {
 	return func() tea.Msg {
@@ -32,5 +32,11 @@ func createNewTabCmd(url string) tea.Cmd {
 func createChangeTabCmd(tabId int) tea.Cmd {
 	return func() tea.Msg {
 		return changeTabMsg(tabId)
+	}
+}
+
+func toggleInspectorWindow(toggle bool) tea.Cmd {
+	return func() tea.Msg {
+		return refreshViewport(toggle)
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"ruppi/internal/logger"
 	"ruppi/pkg/httpclient"
 	"ruppi/pkg/style"
-	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -39,7 +38,6 @@ type Browser struct {
 
 	Tabs       *Tabs
 	ActivePane active_session
-	logs       []string
 
 	Logger *logger.Logger
 }
@@ -82,8 +80,32 @@ func (b Browser) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return b, b.Url.Focus()
 		case "?":
 			b.IsInspectorOpen = !b.IsInspectorOpen
-			return b, nil
+
+			return b, toggleInspectorWindow(b.IsInspectorOpen)
 		}
+
+	case refreshViewport:
+		viewportHeight := b.Height - ruppiUIBufferSize
+
+		if b.IsInspectorOpen {
+			viewportHeight -= inspectorBufferSize
+		}
+
+		if !b.Ready {
+			b.Viewport = viewport.New(b.Width, viewportHeight)
+			b.InspectorViewport = viewport.New(b.Width, inspectorBufferSize)
+			b.Viewport.SetContent(b.Tabs.Rendered())
+			b.InspectorViewport.SetContent(b.Logger.Get())
+			b.Ready = true
+		} else {
+			b.Viewport.Width = b.Width
+			b.Viewport.Height = viewportHeight
+			b.InspectorViewport.Width = b.Width
+			b.InspectorViewport.Height = inspectorBufferSize
+			b.InspectorViewport.SetContent(b.Logger.Get())
+		}
+
+		b.Url.Width = b.Width - 27
 
 	case updateScrollPosition:
 		b.Viewport.ScrollDown(int(msg))
@@ -132,28 +154,7 @@ func (b Browser) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		b.Height = msg.Height
 
 		b.Tabs.Render(b.WordWrap(), b.IsKitty)
-
-		viewportHeight := msg.Height - ruppiUIBufferSize
-
-		if b.IsInspectorOpen {
-			viewportHeight -= inspectorBufferSize
-		}
-
-		if !b.Ready {
-			b.Viewport = viewport.New(b.Width, viewportHeight)
-			b.InspectorViewport = viewport.New(b.Width, inspectorBufferSize)
-			b.Viewport.SetContent(b.Tabs.Rendered())
-			b.InspectorViewport.SetContent(strings.Join(b.logs, "\n"))
-			b.Ready = true
-		} else {
-			b.Viewport.Width = msg.Width
-			b.Viewport.Height = viewportHeight
-			b.InspectorViewport.Width = b.Width
-			b.InspectorViewport.Height = inspectorBufferSize
-			b.InspectorViewport.SetContent(strings.Join(b.logs, "\n"))
-		}
-
-		b.Url.Width = b.Width - 27
+		cmds = append(cmds, toggleInspectorWindow(b.IsInspectorOpen))
 	}
 
 	if b.ActivePane == ACTIVE_VIEWPORT && !b.IsInspectorOpen {
@@ -178,9 +179,14 @@ func (b Browser) View() string {
 		return "\n  Initializing..."
 	}
 
+	inspectorWindow := ""
+	if b.IsInspectorOpen {
+		inspectorWindow = lipgloss.NewStyle().Width(b.Width-2).Border(lipgloss.NormalBorder(), true, false, false).Render(b.InspectorViewport.View())
+	}
+
 	statusBar := style.StatusStyle.Width(b.Width - 2).Render(fmt.Sprintf("%s%s%s%s", style.LogoStyle.Render("Ruppi 🐦"), zone.Mark("url_input_bar", style.StatusColor.PaddingLeft(1).Render(b.Url.View())), style.StatusColor.PaddingRight(1).Render(fmt.Sprintf("%3.f%%", b.Viewport.ScrollPercent()*100)), style.LogoStyle.Render("?")))
 	tabs := lipgloss.NewStyle().MarginBottom(1).Render(b.Tabs.ShowTabs(b.Width))
-	body := fmt.Sprintf("%s%s%s%s", tabs, statusBar, b.Viewport.View(), lipgloss.NewStyle().Width(b.Width-2).Border(lipgloss.NormalBorder(), true, false, false).Render(b.InspectorViewport.View()))
+	body := fmt.Sprintf("%s%s%s%s", tabs, statusBar, b.Viewport.View(), inspectorWindow)
 	return zone.Scan(lipgloss.Place(b.Width, b.Height, lipgloss.Left, lipgloss.Top, style.AppStyle.Width(b.Width).Render(body)))
 }
 

@@ -75,7 +75,7 @@ func NewBrowser(width, height, contentWidth int, isKitty bool) app.Browser {
 		Tabs: &app.Tabs{
 			Tabs: []*app.Tab{},
 		},
-		IsInspectorOpen: true,
+		IsInspectorOpen: false,
 		IsKitty:         isKitty,
 		Ready:           false,
 		ActivePane:      app.ACTIVE_VIEWPORT,

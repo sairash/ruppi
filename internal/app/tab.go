@@ -99,10 +99,10 @@ func (ts *Tabs) ShowTabs(width int) string {
 	tabContainerWidth := width - REMOVE_EXTRA_TAB_BUTTONS
 
 	tabsWidth := TRUNCATE_MIN_WIDTH
-	tabsThatCanBeContained := tabContainerWidth / TRUNCATE_MIN_WIDTH
+	tabsThatCanBeContained := (tabContainerWidth / TRUNCATE_MIN_WIDTH) - 1
 
 	if tabsThatCanBeContained >= MAX_TABS_IN_PAGE {
-		tabsWidth = tabContainerWidth / MAX_TABS_IN_PAGE
+		tabsWidth = tabContainerWidth / (MAX_TABS_IN_PAGE + 1)
 		tabsThatCanBeContained = MAX_TABS_IN_PAGE
 	}
 

@@ -34,3 +34,7 @@ func (l *Logger) Listen() tea.Cmd {
 		return LogMsg(msg)
 	}
 }
+
+func (l *Logger) Get() string {
+	return strings.Join(l.prevLogs, "\n")
+}
