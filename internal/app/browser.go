@@ -2,8 +2,10 @@ package app
 
 import (
 	"fmt"
+	"ruppi/internal/logger"
 	"ruppi/pkg/httpclient"
 	"ruppi/pkg/style"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -15,7 +17,8 @@ import (
 type active_session int
 
 const (
-	ruppiUIBufferSize = 5
+	ruppiUIBufferSize   = 5
+	inspectorBufferSize = 10
 
 	ACTIVE_VIEWPORT active_session = iota
 	ACTIVE_INPUT_URL
@@ -28,14 +31,21 @@ type Browser struct {
 	IsKitty      bool
 	Ready        bool
 
-	Url        textinput.Model
-	Viewport   viewport.Model
+	Url      textinput.Model
+	Viewport viewport.Model
+
+	IsInspectorOpen   bool
+	InspectorViewport viewport.Model
+
 	Tabs       *Tabs
 	ActivePane active_session
+	logs       []string
+
+	Logger *logger.Logger
 }
 
 func (b Browser) Init() tea.Cmd {
-	return nil
+	return b.Logger.Listen()
 }
 
 func (b Browser) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -70,8 +80,13 @@ func (b Browser) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "i", "/":
 			b.ActivePane = ACTIVE_INPUT_URL
 			return b, b.Url.Focus()
+		case "?":
+			b.IsInspectorOpen = !b.IsInspectorOpen
+			return b, nil
 		}
 
+	case updateScrollPosition:
+		b.Viewport.ScrollDown(int(msg))
 	case updateURL:
 		b.Url.SetValue(string(msg))
 	case newTabMsg:
@@ -84,12 +99,17 @@ func (b Browser) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, updateURLCmd(b.Tabs.ActiveTab().url))
 		b.Viewport.SetContent(b.Tabs.Rendered())
 		b.Viewport.GotoTop()
+		cmds = append(cmds, updateScrollPositionCmd(b.Tabs.activeTab.scrollPos))
+
+		// b.Tabs.SetScrollPos(b.Tabs.activeTab.scrollPos)
 	case tea.MouseMsg:
 		if msg.Action == tea.MouseActionRelease && msg.Button == tea.MouseButtonLeft {
 			if zone.Get("new_tab").InBounds(msg) {
+				b.Logger.Add("New tab button clicked")
 				cmds = append(cmds, createNewTabCmd(""))
 			}
 			if zone.Get("url_input_bar").InBounds(msg) {
+				b.Logger.Add("URL input bar clicked")
 				b.ActivePane = ACTIVE_INPUT_URL
 				cmds = append(cmds, b.Url.Focus())
 			}
@@ -102,26 +122,51 @@ func (b Browser) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+	case logger.LogMsg:
+		b.InspectorViewport.SetContent(string(msg))
+		b.InspectorViewport.ScrollDown(1)
+
+		cmds = append(cmds, b.Logger.Listen())
 	case tea.WindowSizeMsg:
 		b.Width = msg.Width
 		b.Height = msg.Height
 
 		b.Tabs.Render(b.WordWrap(), b.IsKitty)
 
+		viewportHeight := msg.Height - ruppiUIBufferSize
+
+		if b.IsInspectorOpen {
+			viewportHeight -= inspectorBufferSize
+		}
+
 		if !b.Ready {
-			b.Viewport = viewport.New(b.Width, msg.Height-ruppiUIBufferSize)
+			b.Viewport = viewport.New(b.Width, viewportHeight)
+			b.InspectorViewport = viewport.New(b.Width, inspectorBufferSize)
 			b.Viewport.SetContent(b.Tabs.Rendered())
+			b.InspectorViewport.SetContent(strings.Join(b.logs, "\n"))
 			b.Ready = true
 		} else {
 			b.Viewport.Width = msg.Width
-			b.Viewport.Height = msg.Height - ruppiUIBufferSize
+			b.Viewport.Height = viewportHeight
+			b.InspectorViewport.Width = b.Width
+			b.InspectorViewport.Height = inspectorBufferSize
+			b.InspectorViewport.SetContent(strings.Join(b.logs, "\n"))
 		}
 
 		b.Url.Width = b.Width - 27
 	}
 
-	if b.ActivePane == ACTIVE_VIEWPORT {
+	if b.ActivePane == ACTIVE_VIEWPORT && !b.IsInspectorOpen {
 		b.Viewport, cmd = b.Viewport.Update(msg)
+		if !b.Viewport.AtTop() {
+			b.Tabs.SetScrollPos(int(b.Viewport.ScrollPercent() * float64(b.Viewport.TotalLineCount())))
+		}
+		cmds = append(cmds, cmd)
+	} else if b.ActivePane == ACTIVE_VIEWPORT && b.IsInspectorOpen {
+		b.InspectorViewport, cmd = b.InspectorViewport.Update(msg)
+		if !b.InspectorViewport.AtTop() {
+			b.Tabs.SetScrollPos(int(b.InspectorViewport.ScrollPercent() * float64(b.InspectorViewport.TotalLineCount())))
+		}
 		cmds = append(cmds, cmd)
 	}
 
@@ -135,7 +180,7 @@ func (b Browser) View() string {
 
 	statusBar := style.StatusStyle.Width(b.Width - 2).Render(fmt.Sprintf("%s%s%s%s", style.LogoStyle.Render("Ruppi 🐦"), zone.Mark("url_input_bar", style.StatusColor.PaddingLeft(1).Render(b.Url.View())), style.StatusColor.PaddingRight(1).Render(fmt.Sprintf("%3.f%%", b.Viewport.ScrollPercent()*100)), style.LogoStyle.Render("?")))
 	tabs := lipgloss.NewStyle().MarginBottom(1).Render(b.Tabs.ShowTabs(b.Width))
-	body := fmt.Sprintf("%s%s%s", tabs, statusBar, b.Viewport.View())
+	body := fmt.Sprintf("%s%s%s%s", tabs, statusBar, b.Viewport.View(), lipgloss.NewStyle().Width(b.Width-2).Border(lipgloss.NormalBorder(), true, false, false).Render(b.InspectorViewport.View()))
 	return zone.Scan(lipgloss.Place(b.Width, b.Height, lipgloss.Left, lipgloss.Top, style.AppStyle.Width(b.Width).Render(body)))
 }
 

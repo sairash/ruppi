@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	TRUNCATE_MIN_WIDTH       = 13
+	TRUNCATE_MIN_WIDTH       = 10
 	REMOVE_EXTRA_TAB_BUTTONS = 14
-	MAX_TABS_IN_PAGE         = 10
+	MAX_TABS_IN_PAGE         = 9
 )
 
 var (
@@ -28,7 +28,7 @@ type Tab struct {
 	document      dom.Node
 	rendered      string
 	title         string
-	scrollPos     float64
+	scrollPos     int
 	renderedWidth int
 	url           string
 }
@@ -36,6 +36,10 @@ type Tab struct {
 func (t *Tab) Render(wordwrap int, isKitty bool) {
 	t.rendered = dom.WordWrap(t.document.Render(isKitty), wordwrap)
 	t.renderedWidth = wordwrap
+}
+
+func (t *Tab) setScrollPos(pos int) {
+	t.scrollPos = pos
 }
 
 func (t *Tab) ChangeURL(url string, wordWrap int, isKitty bool) {
@@ -56,6 +60,11 @@ type Tabs struct {
 	TotalTabCount int
 	activeTab     *Tab
 	activeTabID   int
+
+	showingTabsIndex struct {
+		from int
+		to   int
+	}
 }
 
 func (ts *Tabs) Render(wordWrap int, isKitty bool) {
@@ -94,18 +103,22 @@ func (ts *Tabs) ShowTabs(width int) string {
 
 	if tabsThatCanBeContained >= MAX_TABS_IN_PAGE {
 		tabsWidth = tabContainerWidth / MAX_TABS_IN_PAGE
+		tabsThatCanBeContained = MAX_TABS_IN_PAGE
 	}
 
 	k := 0
 	tabBackgroundColor := "#202020"
 	for id, tab := range ts.Tabs {
+		if k >= tabsThatCanBeContained {
+			break
+		}
 		if id == ts.activeTabID {
 			tabBackgroundColor = "#3a3a3a"
 		} else {
 			tabBackgroundColor = "#202020"
 		}
 
-		tab_str.WriteString(style.TabContainerColor.PaddingRight(1).Render(lipgloss.NewStyle().Background(lipgloss.Color(tabBackgroundColor)).Render(zone.Mark(fmt.Sprintf("%s%d", TAB_ID, k), style.PaddingX.Render(string(tabPrefixNumber[k]))+helper.TruncateString(tab.title, tabsWidth-6, true)) + style.PaddingX.Render("𜸲"))))
+		tab_str.WriteString(style.TabContainerColor.PaddingRight(1).Render(lipgloss.NewStyle().Background(lipgloss.Color(tabBackgroundColor)).Render(zone.Mark(fmt.Sprintf("%s%d", TAB_ID, k), style.PaddingX.Render(string(tabPrefixNumber[k]))+helper.TruncateString(tab.title, tabsWidth-6, true)) + style.PaddingX.Render("x"))))
 		k += 1
 	}
 
@@ -150,4 +163,8 @@ func (ts *Tabs) NewTab(url string, wordWrap int, isKitty bool) {
 	ts.Tabs = append(ts.Tabs, tab)
 	ts.activeTabID = tab.id
 	ts.activeTab = tab
+}
+
+func (ts *Tabs) SetScrollPos(pos int) {
+	ts.activeTab.setScrollPos(pos)
 }

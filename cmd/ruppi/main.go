@@ -6,6 +6,7 @@ import (
 	"os"
 	"ruppi/internal/app"
 	"ruppi/internal/config"
+	"ruppi/internal/logger"
 	"ruppi/pkg/style"
 	"strings"
 
@@ -52,6 +53,8 @@ func main() {
 }
 
 func NewBrowser(width, height, contentWidth int, isKitty bool) app.Browser {
+	logger := logger.NewLogger()
+
 	ti := textinput.New()
 	ti.PlaceholderStyle = style.StatusColor
 	ti.TextStyle = style.StatusColor
@@ -72,8 +75,10 @@ func NewBrowser(width, height, contentWidth int, isKitty bool) app.Browser {
 		Tabs: &app.Tabs{
 			Tabs: []*app.Tab{},
 		},
-		IsKitty:    isKitty,
-		Ready:      false,
-		ActivePane: app.ACTIVE_VIEWPORT,
+		IsInspectorOpen: true,
+		IsKitty:         isKitty,
+		Ready:           false,
+		ActivePane:      app.ACTIVE_VIEWPORT,
+		Logger:          logger,
 	}
 }

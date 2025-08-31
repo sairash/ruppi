@@ -6,10 +6,17 @@ const (
 	TAB_ID = "ruppi_tab_id_"
 )
 
+type updateScrollPosition int
 type updateURL string
 type newTabMsg string
 type changeTabMsg int
+type logMsg []string
 
+func updateScrollPositionCmd(line int) tea.Cmd {
+	return func() tea.Msg {
+		return updateScrollPosition(line)
+	}
+}
 func updateURLCmd(url string) tea.Cmd {
 	return func() tea.Msg {
 		return updateURL(url)
