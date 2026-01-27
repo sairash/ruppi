@@ -21,6 +21,7 @@ type StyleMap map[string]StyleInfo
 
 var (
 	ruppiConfig = make(StyleMap)
+	maxGaps     = 3 // Default maximum consecutive gaps
 )
 
 func parseKeyValue(line string, info StyleInfo) (StyleInfo, error) {
@@ -118,6 +119,35 @@ func parseKeyValue(line string, info StyleInfo) (StyleInfo, error) {
 	return info, nil
 }
 
+func parseRuppiSetting(line string) error {
+	parts := strings.Fields(line)
+	if len(parts) < 2 {
+		return fmt.Errorf("invalid setting: %s", line)
+	}
+
+	key := strings.ToLower(parts[0])
+	value := parts[1]
+
+	switch key {
+	case "max_gaps":
+		if gaps, err := strconv.Atoi(value); err == nil {
+			if gaps < 1 {
+				gaps = 1
+			}
+			if gaps > 10 {
+				gaps = 10
+			}
+			maxGaps = gaps
+		} else {
+			return fmt.Errorf("invalid max_gaps value: %s", value)
+		}
+	default:
+		return fmt.Errorf("unknown rupi setting: %s", key)
+	}
+
+	return nil
+}
+
 func parseBool(s string) bool {
 	b, _ := strconv.ParseBool(s)
 	return b
@@ -141,12 +171,19 @@ func parseHex(s string) string {
 }
 
 func AddStyle(tag string, content string) string {
+	if strings.TrimSpace(content) == "" {
+		return content
+	}
 
 	if val, has := ruppiConfig[tag]; has {
 		return val.Style.Render(val.Prefix + content + val.Infix)
 	}
 
 	return content
+}
+
+func GetMaxGaps() int {
+	return maxGaps
 }
 
 func LoadConfig(path string) error {
@@ -168,22 +205,28 @@ func LoadConfig(path string) error {
 		}
 
 		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
-			if currentTag != "" {
+			if currentTag != "" && currentTag != "rupi" {
 				ruppiConfig[currentTag] = currentInfo
 			}
 
 			currentTag = strings.Trim(line, "[]")
 			currentInfo = StyleInfo{Style: lipgloss.NewStyle()}
 		} else if currentTag != "" {
-			var err error
-			currentInfo, err = parseKeyValue(line, currentInfo)
-			if err != nil {
-				fmt.Printf("Warning: skipping line in [%s]: %v\n", currentTag, err)
+			if currentTag == "rupi" {
+				if err := parseRuppiSetting(line); err != nil {
+					fmt.Printf("Warning: skipping rupi setting: %v\n", err)
+				}
+			} else {
+				var err error
+				currentInfo, err = parseKeyValue(line, currentInfo)
+				if err != nil {
+					fmt.Printf("Warning: skipping line in [%s]: %v\n", currentTag, err)
+				}
 			}
 		}
 	}
 
-	if currentTag != "" {
+	if currentTag != "" && currentTag != "rupi" {
 		ruppiConfig[currentTag] = currentInfo
 	}
 

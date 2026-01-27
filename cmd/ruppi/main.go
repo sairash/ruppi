@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"ruppi/internal/app"
@@ -22,9 +23,19 @@ func main() {
 	}
 
 	urlFlag := flag.String("url", "", "The URL to parse and render.")
+	outputFlag := flag.String("o", "", "Output file path. If specified, content will be written to file instead of displayed in TUI.")
 	kittyFlag := flag.Bool("kitty", true, "Enable Kitty terminal graphics protocol extensions.")
 	contentWidth := flag.Int("width", 80, "Content word wrap width. Default is 80.")
 	flag.Parse()
+
+	// If output file is specified, handle it directly without terminal setup
+	if *outputFlag != "" {
+		if err := writeURLToFile(*urlFlag, *outputFlag, *contentWidth, *kittyFlag); err != nil {
+			log.Fatalf("Error writing to file: %v", err)
+		}
+		fmt.Printf("Content written to: %s\n", *outputFlag)
+		return
+	}
 
 	zone.NewGlobal()
 	defer zone.Close()
@@ -81,4 +92,30 @@ func NewBrowser(width, height, contentWidth int, isKitty bool) app.Browser {
 		ActivePane:      app.ACTIVE_VIEWPORT,
 		Logger:          logger,
 	}
+}
+
+// writeURLToFile fetches URL content and writes it to the specified file
+func writeURLToFile(url, filePath string, contentWidth int, isKitty bool) error {
+	// Import necessary packages for this function
+	tabs := &app.Tabs{
+		Tabs: []*app.Tab{},
+	}
+
+	// Determine content width (same logic as WordWrap method)
+	if contentWidth > 120 {
+		contentWidth = 120
+	}
+	// For file output, we'll use a reasonable default width if not constrained by terminal
+	if contentWidth == 80 {
+		contentWidth = 100 // Default to 100 for file output
+	}
+
+	// Create a new tab with the URL
+	tabs.NewTab(url, contentWidth, isKitty)
+
+	// Get the rendered content
+	content := tabs.Rendered()
+
+	// Write to file
+	return os.WriteFile(filePath, []byte(content), 0644)
 }

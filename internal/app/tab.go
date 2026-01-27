@@ -2,7 +2,6 @@ package app
 
 import (
 	"fmt"
-	"log"
 	"ruppi/internal/dom"
 	"ruppi/pkg/helper"
 	"ruppi/pkg/httpclient"
@@ -49,7 +48,6 @@ func (t *Tab) setScrollPos(pos int) {
 func (t *Tab) ChangeURL(url string, wordWrap int, isKitty bool) {
 	documentNode, title, err := httpclient.GetUrlAsNode(url)
 	if err != nil {
-		log.Printf("Failed to get URL %s: %v", url, err)
 		documentNode, title, _ = httpclient.ErrorPage(err)
 	}
 	t.document = documentNode
@@ -114,15 +112,13 @@ func (ts *Tabs) ShowTabs(width int) string {
 			break
 		}
 
-		tabBackgroundColor := tab.backgroundColor
-		tabForegroundColor := tab.foregroudColor
+		title := tab.title
 
-		if tab.id == ts.activeTabID {
-			tabBackgroundColor = "#3a3a3a"
-			tabForegroundColor = "#ffffff"
+		if ts.activeTabID == tab.id {
+			title = fmt.Sprintf("%s%s", "🐦 ", tab.title)
 		}
 
-		tab_str.WriteString(style.TabContainerColor.PaddingRight(1).Render(lipgloss.NewStyle().Background(lipgloss.Color(tabBackgroundColor)).Foreground(lipgloss.Color(tabForegroundColor)).Render(zone.Mark(fmt.Sprintf("%s%d", TAB_ID, k), style.PaddingX.Render(string(tabPrefixNumber[k]))+helper.TruncateString(tab.title, tabsWidth-6, true)) + style.PaddingX.Render("x"))))
+		tab_str.WriteString(style.TabContainerColor.PaddingRight(1).Render(lipgloss.NewStyle().Background(lipgloss.Color(tab.backgroundColor)).Foreground(lipgloss.Color(tab.foregroudColor)).Render(zone.Mark(fmt.Sprintf("%s%d", TAB_ID, k), style.PaddingX.Render(string(tabPrefixNumber[k]))+helper.TruncateString(title, tabsWidth-6, true)) + style.PaddingX.Render("x"))))
 		k += 1
 	}
 
@@ -171,7 +167,6 @@ func (ts *Tabs) NewTab(url string, wordWrap int, isKitty bool) {
 	}
 
 	if err != nil {
-		log.Printf("Failed to create new tab for URL %s: %v", url, err)
 		documentNode, title, _ = httpclient.ErrorPage(err)
 	}
 

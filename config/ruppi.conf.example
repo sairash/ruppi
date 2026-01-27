@@ -1,6 +1,9 @@
 # Default styles inspired by charmbracelet/glow
 # Using a pleasant, modern color palette.
 
+[rupi]
+max_gaps 3
+
 [div]
 foreground #abb2bf
 

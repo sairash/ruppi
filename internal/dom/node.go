@@ -230,11 +230,12 @@ func normalizeNewlines(s string) string {
 	var b strings.Builder
 	b.Grow(len(s))
 
+	maxGaps := config.GetMaxGaps()
 	newlineCount := 0
 	for _, r := range s {
 		if r == '\n' {
 			newlineCount++
-			if newlineCount <= 2 {
+			if newlineCount <= maxGaps {
 				b.WriteRune(r)
 			}
 		} else {
