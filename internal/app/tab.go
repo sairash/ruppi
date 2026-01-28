@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"ruppi/internal/config"
 	"ruppi/internal/dom"
 	"ruppi/pkg/helper"
 	"ruppi/pkg/httpclient"
@@ -19,21 +20,17 @@ const (
 )
 
 var (
-	tabPrefixNumber     = []rune("🯱🯲🯳🯴🯵🯶🯷🯸🯹")
-	inactiveButtonColor = lipgloss.Color("3")
-	activeButtonColor   = lipgloss.Color("30")
+	tabPrefixNumber = []rune("🯱🯲🯳🯴🯵🯶🯷🯸🯹")
 )
 
 type Tab struct {
-	id              int
-	backgroundColor string
-	foregroudColor  string
-	document        dom.Node
-	rendered        string
-	title           string
-	scrollPos       int
-	renderedWidth   int
-	url             string
+	id            int
+	document      dom.Node
+	rendered      string
+	title         string
+	scrollPos     int
+	renderedWidth int
+	url           string
 }
 
 func (t *Tab) Render(wordwrap int, isKitty bool) {
@@ -112,30 +109,76 @@ func (ts *Tabs) ShowTabs(width int) string {
 			break
 		}
 
+		theme := config.GetTheme()
 		title := tab.title
 
+		// Use theme colors for tab styling
+		var tabStyle lipgloss.Style
 		if ts.activeTabID == tab.id {
 			title = fmt.Sprintf("%s%s", "🐦 ", tab.title)
+			tabStyle = lipgloss.NewStyle().
+				Background(lipgloss.Color(theme.TabActiveColor)).
+				Foreground(lipgloss.Color(theme.TabActiveTextColor)).
+				Padding(0, 1).
+				MarginRight(1)
+			// Border(lipgloss.NormalBorder(), false, true, false, false).
+			// BorderForeground(lipgloss.Color(theme.TabActiveColor))
+		} else {
+			tabStyle = lipgloss.NewStyle().
+				Background(lipgloss.Color(theme.TabColor)).
+				Foreground(lipgloss.Color(theme.TabTextColor)).
+				Padding(0, 1).
+				MarginRight(1)
+			// Border(lipgloss.NormalBorder(), false, true, false, false).
+			// BorderForeground(lipgloss.Color("#2d3748"))
 		}
 
-		tab_str.WriteString(style.TabContainerColor.PaddingRight(1).Render(lipgloss.NewStyle().Background(lipgloss.Color(tab.backgroundColor)).Foreground(lipgloss.Color(tab.foregroudColor)).Render(zone.Mark(fmt.Sprintf("%s%d", TAB_ID, k), style.PaddingX.Render(string(tabPrefixNumber[k]))+helper.TruncateString(title, tabsWidth-6, true)) + style.PaddingX.Render("x"))))
+		tabContent := zone.Mark(fmt.Sprintf("%s%d", TAB_ID, k),
+			string(tabPrefixNumber[k])+" "+
+				helper.TruncateString(title, tabsWidth-6, true)+" "+theme.TabCloseIcon)
+
+		tab_str.WriteString(tabStyle.Render(tabContent))
 		k += 1
 	}
 
-	moveLeftButtonColor := inactiveButtonColor
+	theme := config.GetTheme()
+
+	// Determine button colors based on state
+	moveLeftButtonColor := theme.TabColor
 	if ts.visibleTabStartIndex > 0 {
-		moveLeftButtonColor = activeButtonColor
+		moveLeftButtonColor = theme.TabActiveColor
 	}
 
-	moveRightButtonColor := inactiveButtonColor
+	moveRightButtonColor := theme.TabColor
 	if ts.visibleTabStartIndex+MAX_TABS_IN_PAGE < len(ts.Tabs) {
-		moveRightButtonColor = activeButtonColor
+		moveRightButtonColor = theme.TabActiveColor
 	}
 
-	return zone.Mark("go_previous_tab", style.PaddingX.Foreground(lipgloss.NoColor{}).MarginRight(1).Background(moveLeftButtonColor).Render("<")) +
-		style.TabContainerColor.Width(tabContainerWidth).Render(tab_str.String()) +
-		zone.Mark("go_next_tab", style.PaddingX.Foreground(lipgloss.NoColor{}).Margin(0, 1).Background(moveRightButtonColor).Render(">")) +
-		zone.Mark("new_tab", style.PaddingX.Foreground(lipgloss.NoColor{}).Background(lipgloss.Color("30")).Render("+"))
+	// Styled navigation buttons
+	leftButtonStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(theme.TabTextColor)).
+		Background(lipgloss.Color(moveLeftButtonColor)).
+		Padding(0, 1).
+		MarginRight(1)
+		// Border(lipgloss.RoundedBorder())
+
+	rightButtonStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(theme.TabTextColor)).
+		Background(lipgloss.Color(moveRightButtonColor)).
+		Padding(0, 1).
+		Margin(0, 1)
+		// Border(lipgloss.RoundedBorder())
+
+	newTabStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(theme.TabActiveTextColor)).
+		Background(lipgloss.Color(theme.TabActiveColor)).
+		Padding(0, 1)
+		// Border(lipgloss.RoundedBorder())
+
+	return zone.Mark("go_previous_tab", leftButtonStyle.Render(theme.TabPrevIcon)) +
+		style.TabContainerColor().Width(tabContainerWidth).Render(tab_str.String()) +
+		zone.Mark("go_next_tab", rightButtonStyle.Render(theme.TabNextIcon)) +
+		zone.Mark("new_tab", newTabStyle.Render(theme.TabNewIcon))
 }
 
 func (ts *Tabs) MoveLeft() {
@@ -170,16 +213,12 @@ func (ts *Tabs) NewTab(url string, wordWrap int, isKitty bool) {
 		documentNode, title, _ = httpclient.ErrorPage(err)
 	}
 
-	background, foregroud := helper.ColorGenerator()
-
 	tab := &Tab{
-		id:              len(ts.Tabs),
-		backgroundColor: background,
-		foregroudColor:  foregroud,
-		document:        documentNode,
-		title:           title,
-		scrollPos:       0,
-		url:             url,
+		id:        len(ts.Tabs),
+		document:  documentNode,
+		title:     title,
+		scrollPos: 0,
+		url:       url,
 	}
 
 	tab.Render(wordWrap, isKitty)

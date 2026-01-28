@@ -19,9 +19,40 @@ type StyleInfo struct {
 
 type StyleMap map[string]StyleInfo
 
+type Theme struct {
+	// Colors
+	TabColor            string
+	TabActiveColor      string
+	TabTextColor        string
+	TabActiveTextColor  string
+	BackgroundColor     string
+	StatusBarColor      string
+	BrowserForeground   string
+	InspectorForeground string
+
+	// Icons
+	TabCloseIcon string
+	TabNewIcon   string
+	TabPrevIcon  string
+	TabNextIcon  string
+	SearchIcon   string
+
+	// Text Labels
+	SearchPlaceholder  string
+	InspectorToggleKey string
+	QuitKey            string
+	SearchKey          string
+	NewTabTooltip      string
+
+	// Browser
+	BrowserBackground   string
+	InspectorBackground string
+}
+
 var (
-	ruppiConfig = make(StyleMap)
-	maxGaps     = 3 // Default maximum consecutive gaps
+	ruppiConfig  = make(StyleMap)
+	maxGaps      = 3
+	currentTheme = getDefaultTheme()
 )
 
 func parseKeyValue(line string, info StyleInfo) (StyleInfo, error) {
@@ -31,6 +62,12 @@ func parseKeyValue(line string, info StyleInfo) (StyleInfo, error) {
 	}
 	key := strings.ToLower(parts[0])
 	value := strings.Join(parts[1:], " ")
+
+	// Remove quotes if present
+	if len(value) >= 2 && ((value[0] == '"' && value[len(value)-1] == '"') ||
+		(value[0] == '\'' && value[len(value)-1] == '\'')) {
+		value = value[1 : len(value)-1]
+	}
 
 	switch key {
 	case "prefix":
@@ -126,10 +163,16 @@ func parseRuppiSetting(line string) error {
 	}
 
 	key := strings.ToLower(parts[0])
-	value := parts[1]
+	value := strings.Join(parts[1:], " ")
+
+	// Remove quotes if present
+	if len(value) >= 2 && ((value[0] == '"' && value[len(value)-1] == '"') ||
+		(value[0] == '\'' && value[len(value)-1] == '\'')) {
+		value = value[1 : len(value)-1]
+	}
 
 	switch key {
-	case "max_gaps":
+	case "max-gaps":
 		if gaps, err := strconv.Atoi(value); err == nil {
 			if gaps < 1 {
 				gaps = 1
@@ -139,8 +182,55 @@ func parseRuppiSetting(line string) error {
 			}
 			maxGaps = gaps
 		} else {
-			return fmt.Errorf("invalid max_gaps value: %s", value)
+			return fmt.Errorf("invalid max-gaps value: %s", value)
 		}
+
+	// Colors
+	case "tab-color":
+		currentTheme.TabColor = value
+	case "tab-active-color":
+		currentTheme.TabActiveColor = value
+	case "tab-text-color":
+		currentTheme.TabTextColor = value
+	case "tab-active-text-color":
+		currentTheme.TabActiveTextColor = value
+	case "background-color":
+		currentTheme.BackgroundColor = value
+	case "status-bar-color":
+		currentTheme.StatusBarColor = value
+	case "browser-background":
+		currentTheme.BrowserBackground = value
+	case "inspector-background":
+		currentTheme.InspectorBackground = value
+	case "browser-foreground":
+		currentTheme.BrowserForeground = value
+	case "inspector-foreground":
+		currentTheme.InspectorForeground = value
+
+	// Icons
+	case "tab-close-icon":
+		currentTheme.TabCloseIcon = value
+	case "tab-new-icon":
+		currentTheme.TabNewIcon = value
+	case "tab-prev-icon":
+		currentTheme.TabPrevIcon = value
+	case "tab-next-icon":
+		currentTheme.TabNextIcon = value
+	case "search-icon":
+		currentTheme.SearchIcon = value
+
+	// Text Labels
+	case "search-placeholder":
+		currentTheme.SearchPlaceholder = value
+	case "inspector-toggle-key":
+		currentTheme.InspectorToggleKey = value
+	case "quit-key":
+		currentTheme.QuitKey = value
+	case "search-key":
+		currentTheme.SearchKey = value
+	case "new-tab-tooltip":
+		currentTheme.NewTabTooltip = value
+
 	default:
 		return fmt.Errorf("unknown rupi setting: %s", key)
 	}
@@ -159,12 +249,17 @@ func parseInt(s string) int {
 }
 
 func parseHex(s string) string {
-	if len(s) < 2 || s[0] != '#' {
-		log.Fatalf("expected hex value like #ff0000, but got %s insted.", s)
+	if len(s) < 4 || s[0] != '#' {
+		log.Fatalf("expected hex value like #ff0000, but got %s instead.", s)
 	}
-	for _, c := range s[1:] {
+	// Support both #RGB and #RRGGBB formats
+	hexPart := s[1:]
+	if len(hexPart) != 3 && len(hexPart) != 6 {
+		log.Fatalf("expected hex value like #ff0000 or #f00, but got %s instead.", s)
+	}
+	for _, c := range hexPart {
 		if !(('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')) {
-			log.Fatalf("expected hex value like #ff0000, but got %s insted.", s)
+			log.Fatalf("expected hex value like #ff0000, but got %s instead.", s)
 		}
 	}
 	return s
@@ -182,8 +277,76 @@ func AddStyle(tag string, content string) string {
 	return content
 }
 
+func getDefaultTheme() Theme {
+	return Theme{
+		// Colors
+		TabColor:            "#4a5568",
+		TabActiveColor:      "#48bb78",
+		TabTextColor:        "#ffffff",
+		TabActiveTextColor:  "#ffffff",
+		BackgroundColor:     "#1a1a1a",
+		StatusBarColor:      "#242424",
+		BrowserForeground:   "#ffffff",
+		InspectorForeground: "#ffffff",
+
+		// Icons
+		TabCloseIcon: "×",
+		TabNewIcon:   "＋",
+		TabPrevIcon:  "◀",
+		TabNextIcon:  "▶",
+		SearchIcon:   "🔗",
+
+		// Text Labels
+		SearchPlaceholder:  "Search or type a URL",
+		InspectorToggleKey: "?",
+		QuitKey:            "q",
+		SearchKey:          "i",
+		NewTabTooltip:      "New Tab",
+
+		// Browser
+		BrowserBackground:   "#0e0e0e",
+		InspectorBackground: "#1e1e1e",
+	}
+}
+
 func GetMaxGaps() int {
 	return maxGaps
+}
+
+func GetTheme() Theme {
+	return currentTheme
+}
+
+func GetTabColor() string {
+	return currentTheme.TabColor
+}
+
+func GetTabActiveColor() string {
+	return currentTheme.TabActiveColor
+}
+
+func GetTabTextColor() string {
+	return currentTheme.TabTextColor
+}
+
+func GetTabActiveTextColor() string {
+	return currentTheme.TabActiveTextColor
+}
+
+func GetBackgroundColor() string {
+	return currentTheme.BackgroundColor
+}
+
+func GetStatusBarColor() string {
+	return currentTheme.StatusBarColor
+}
+
+func GetBrowserBackground() string {
+	return currentTheme.BrowserBackground
+}
+
+func GetInspectorBackground() string {
+	return currentTheme.InspectorBackground
 }
 
 func LoadConfig(path string) error {

@@ -67,14 +67,15 @@ func NewBrowser(width, height, contentWidth int, isKitty bool) app.Browser {
 	logger := logger.NewLogger()
 
 	ti := textinput.New()
-	ti.PlaceholderStyle = style.StatusColor
-	ti.TextStyle = style.StatusColor
-	ti.Cursor.Style = style.StatusColor
-	ti.PromptStyle = style.StatusColor
-	ti.Cursor.TextStyle = style.StatusColor
-	ti.Placeholder = "Search or type a URL"
+	theme := config.GetTheme()
+	ti.PlaceholderStyle = style.StatusColor()
+	ti.TextStyle = style.StatusColor()
+	ti.Cursor.Style = style.StatusColor()
+	ti.PromptStyle = style.StatusColor()
+	ti.Cursor.TextStyle = style.StatusColor()
+	ti.Placeholder = theme.SearchPlaceholder
 	ti.Blur()
-	ti.Prompt = "🔗 > "
+	ti.Prompt = theme.SearchIcon + " > "
 	ti.CharLimit = 256
 	ti.Width = width - 28 // Initial width, will be updated on window resize
 

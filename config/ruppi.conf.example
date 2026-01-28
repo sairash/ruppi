@@ -2,7 +2,34 @@
 # Using a pleasant, modern color palette.
 
 [rupi]
-max_gaps 3
+# Gap Configuration
+max-gaps 3
+
+# Theme Colors
+tab-color "#4a5568"
+tab-active-color "#48bb78"
+tab-text-color "#ffffff"
+tab-active-text-color "#ffffff"
+background-color "#1a1a1a"
+status-bar-color "#242424"
+browser-background "#0e0e0e"
+inspector-background "#1e1e1e"
+browser-foreground "#ffffff"
+inspector-foreground "#ffffff"
+
+# Theme Icons
+tab-close-icon "×"
+tab-new-icon "＋"
+tab-prev-icon "◀"
+tab-next-icon "▶"
+search-icon "🔗"
+
+# Theme Text Labels
+search-placeholder "Search or type a URL"
+inspector-toggle-key "?"
+quit-key "q"
+search-key "i"
+new-tab-tooltip "New Tab"
 
 [div]
 foreground #abb2bf

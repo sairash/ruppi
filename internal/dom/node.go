@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"ruppi/internal/config"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/reflow/wordwrap"
+	"github.com/muesli/reflow/wrap"
 )
 
 const (
@@ -227,23 +228,27 @@ func stripANSICodes(s string) string {
 }
 
 func normalizeNewlines(s string) string {
-	var b strings.Builder
-	b.Grow(len(s))
-
 	maxGaps := config.GetMaxGaps()
-	newlineCount := 0
-	for _, r := range s {
-		if r == '\n' {
-			newlineCount++
-			if newlineCount <= maxGaps {
-				b.WriteRune(r)
+	lines := strings.Split(s, "\n")
+	var result []string
+	consecutiveEmptyLines := 0
+
+	for _, line := range lines {
+		cleanLine := strings.TrimSpace(stripANSICodes(line))
+		isEmptyLine := cleanLine == ""
+
+		if isEmptyLine {
+			consecutiveEmptyLines++
+			if consecutiveEmptyLines <= maxGaps {
+				result = append(result, "")
 			}
 		} else {
-			newlineCount = 0
-			b.WriteRune(r)
+			consecutiveEmptyLines = 0
+			result = append(result, line)
 		}
 	}
-	return b.String()
+
+	return strings.Join(result, "\n")
 }
 
 func WordWrap(text string, maxWidth int) string {
@@ -251,55 +256,25 @@ func WordWrap(text string, maxWidth int) string {
 		return text
 	}
 
-	text = normalizeNewlines(text)
+	wordWrapper := wordwrap.NewWriter(maxWidth)
+	wordWrapper.Breakpoints = []rune{' ', '\t', '-', '–', '—', ':', ',', ';', '.', '!', '?', '/', '\\'}
+	wordWrapper.Write([]byte(text))
+	wrappedText := wordWrapper.String()
 
-	var wrappedText strings.Builder
-	wrappedText.Grow(len(text) + len(text)/maxWidth*2)
+	unconditionalWrapper := wrap.NewWriter(maxWidth)
+	unconditionalWrapper.KeepNewlines = true
+	unconditionalWrapper.PreserveSpace = false
+	unconditionalWrapper.TabWidth = 4
+	unconditionalWrapper.Write([]byte(wrappedText))
+	finalText := unconditionalWrapper.String()
 
-	currentLineLength := 0
-	words := strings.FieldsFunc(text, func(r rune) bool {
-		return r == ' ' || r == '\n' || r == '\t' || r == '\r'
-	})
-
-	remainingText := text
-	for _, word := range words {
-		idx := strings.Index(remainingText, word)
-		if idx == -1 {
-			continue
-		}
-
-		segment := remainingText[:idx+len(word)]
-
-		remainingText = remainingText[idx+len(word):]
-
-		actualWord := word
-		leadingWhitespace := ""
-		if idx > 0 {
-			leadingWhitespace = segment[:idx]
-		}
-
-		displayWord := stripANSICodes(actualWord)
-		wordDisplayLength := utf8.RuneCountInString(displayWord)
-
-		newlineInSegment := strings.ContainsRune(leadingWhitespace, '\n')
-		if newlineInSegment {
-			if wrappedText.Len() > 0 && wrappedText.String()[wrappedText.Len()-1] != '\n' {
-				wrappedText.WriteRune('\n')
-			}
-			currentLineLength = 0
-		} else if currentLineLength > 0 && currentLineLength+1+wordDisplayLength > maxWidth {
-			wrappedText.WriteRune('\n')
-			currentLineLength = 0
-		} else if currentLineLength > 0 {
-			wrappedText.WriteRune(' ')
-			currentLineLength++
-		}
-
-		wrappedText.WriteString(actualWord)
-		currentLineLength += wordDisplayLength
+	lines := strings.Split(finalText, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimRight(line, " \t")
 	}
+	finalText = strings.Join(lines, "\n")
 
-	return wrappedText.String()
+	return normalizeNewlines(finalText)
 }
 
 func isBlockElement(nodeType uint) bool {

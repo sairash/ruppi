@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"ruppi/internal/config"
 	"ruppi/internal/logger"
 	"ruppi/pkg/httpclient"
 	"ruppi/pkg/style"
@@ -73,13 +74,14 @@ func (b Browser) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return b, tea.Batch(cmds...)
 		}
 
+		theme := config.GetTheme()
 		switch msg.String() {
-		case "q":
+		case theme.QuitKey:
 			return b, tea.Quit
-		case "i", "/":
+		case theme.SearchKey, "/":
 			b.ActivePane = ACTIVE_INPUT_URL
 			return b, b.Url.Focus()
-		case "?":
+		case theme.InspectorToggleKey:
 			b.IsInspectorOpen = !b.IsInspectorOpen
 
 			return b, toggleInspectorWindow(b.IsInspectorOpen)
@@ -197,13 +199,14 @@ func (b Browser) View() string {
 
 	inspectorWindow := ""
 	if b.IsInspectorOpen {
-		inspectorWindow = lipgloss.NewStyle().Width(b.Width-2).Border(lipgloss.NormalBorder(), true, false, false).Render(b.InspectorViewport.View())
+		inspectorWindow = style.InspectorStyle().Width(b.Width-2).Border(lipgloss.NormalBorder(), true, false, false).Render(b.InspectorViewport.View())
 	}
 
-	statusBar := style.StatusStyle.Width(b.Width - 2).Render(fmt.Sprintf("%s%s%s%s", style.LogoStyle.Render("Ruppi 🐦"), zone.Mark("url_input_bar", style.StatusColor.PaddingLeft(1).Render(b.Url.View())), style.StatusColor.PaddingRight(1).Render(fmt.Sprintf("%3.f%%", b.Viewport.ScrollPercent()*100)), style.LogoStyle.Render("?")))
-	tabs := lipgloss.NewStyle().MarginBottom(1).Render(b.Tabs.ShowTabs(b.Width))
+	theme := config.GetTheme()
+	statusBar := style.StatusStyle().Width(b.Width - 2).Render(fmt.Sprintf("%s%s%s%s", style.LogoStyle().Render("Ruppi 🐦"), zone.Mark("url_input_bar", style.StatusColor().PaddingLeft(1).Render(b.Url.View())), style.StatusColor().PaddingRight(1).Render(fmt.Sprintf("%3.f%%", b.Viewport.ScrollPercent()*100)), style.LogoStyle().Render(theme.InspectorToggleKey)))
+	tabs := lipgloss.NewStyle().MarginBottom(1).Render(b.Tabs.ShowTabs(b.Width - 2))
 	body := fmt.Sprintf("%s%s%s%s", tabs, statusBar, b.Viewport.View(), inspectorWindow)
-	return zone.Scan(lipgloss.Place(b.Width, b.Height, lipgloss.Left, lipgloss.Top, style.AppStyle.Width(b.Width).Render(body)))
+	return zone.Scan(lipgloss.Place(b.Width, b.Height, lipgloss.Left, lipgloss.Top, style.AppStyle().Width(b.Width).Render(body)))
 }
 
 func (b *Browser) WordWrap() int {
