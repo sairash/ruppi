@@ -26,9 +26,10 @@ func main() {
 	outputFlag := flag.String("o", "", "Output file path. If specified, content will be written to file instead of displayed in TUI.")
 	kittyFlag := flag.Bool("kitty", true, "Enable Kitty terminal graphics protocol extensions.")
 	contentWidth := flag.Int("width", 80, "Content word wrap width. Default is 80.")
+	rawFlag := flag.Bool("raw", false, "Output raw content directly to stdout without TUI")
 	flag.Parse()
 
-	// If output file is specified, handle it directly without terminal setup
+	// File output mode
 	if *outputFlag != "" {
 		if err := writeURLToFile(*urlFlag, *outputFlag, *contentWidth, *kittyFlag); err != nil {
 			log.Fatalf("Error writing to file: %v", err)
@@ -37,6 +38,14 @@ func main() {
 		return
 	}
 
+	// Raw mode - output directly to stdout without TUI
+	if *rawFlag {
+		content := renderURL(*urlFlag, *contentWidth, *kittyFlag || strings.Contains(os.Getenv("TERM"), "kitty"))
+		fmt.Print(content)
+		return
+	}
+
+	// TUI mode
 	zone.NewGlobal()
 	defer zone.Close()
 
@@ -47,9 +56,7 @@ func main() {
 	}
 
 	browserModel := NewBrowser(width, height, *contentWidth, *kittyFlag || strings.Contains(termProgram, "kitty"))
-
 	browserModel.Url.SetValue(*urlFlag)
-
 	browserModel.Tabs.NewTab(*urlFlag, browserModel.WordWrap(), browserModel.IsKitty)
 
 	p := tea.NewProgram(
@@ -77,7 +84,7 @@ func NewBrowser(width, height, contentWidth int, isKitty bool) app.Browser {
 	ti.Blur()
 	ti.Prompt = theme.SearchIcon + " > "
 	ti.CharLimit = 256
-	ti.Width = width - 28 // Initial width, will be updated on window resize
+	ti.Width = width - 28
 
 	return app.Browser{
 		Width:        width,
@@ -95,28 +102,27 @@ func NewBrowser(width, height, contentWidth int, isKitty bool) app.Browser {
 	}
 }
 
-// writeURLToFile fetches URL content and writes it to the specified file
 func writeURLToFile(url, filePath string, contentWidth int, isKitty bool) error {
-	// Import necessary packages for this function
-	tabs := &app.Tabs{
-		Tabs: []*app.Tab{},
-	}
+	tabs := &app.Tabs{Tabs: []*app.Tab{}}
 
-	// Determine content width (same logic as WordWrap method)
 	if contentWidth > 120 {
 		contentWidth = 120
 	}
-	// For file output, we'll use a reasonable default width if not constrained by terminal
 	if contentWidth == 80 {
-		contentWidth = 100 // Default to 100 for file output
+		contentWidth = 100
 	}
 
-	// Create a new tab with the URL
 	tabs.NewTab(url, contentWidth, isKitty)
+	return os.WriteFile(filePath, []byte(tabs.Rendered()), 0644)
+}
 
-	// Get the rendered content
-	content := tabs.Rendered()
+func renderURL(url string, contentWidth int, isKitty bool) string {
+	tabs := &app.Tabs{Tabs: []*app.Tab{}}
 
-	// Write to file
-	return os.WriteFile(filePath, []byte(content), 0644)
+	if contentWidth > 120 {
+		contentWidth = 120
+	}
+
+	tabs.NewTab(url, contentWidth, isKitty)
+	return tabs.Rendered()
 }

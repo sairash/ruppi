@@ -2,9 +2,19 @@ package helper
 
 import (
 	"fmt"
+	"image"
+	// Import image format decoders
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"math"
 	"math/rand"
+	"net/http"
+	"net/url"
 	"strings"
+	"time"
+
+	_ "golang.org/x/image/webp" // WebP support
 )
 
 // Truncate adds 3(.) ie: ... at the end of the string
@@ -90,4 +100,44 @@ func ColorGenerator() (string, string) {
 	}
 
 	return color, foregroundColor
+}
+
+func ResolveURL(baseStr, input string) (string, error) {
+	base, err := url.Parse(baseStr)
+	if err != nil {
+		return "", err
+	}
+
+	ref, err := url.Parse(input)
+	if err != nil {
+		return "", err
+	}
+
+	// ResolveReference handles ALL cases correctly
+	resolved := base.ResolveReference(ref)
+	return resolved.String(), nil
+}
+
+// imageHTTPClient is a client with reasonable timeouts for image fetching
+var imageHTTPClient = &http.Client{
+	Timeout: 15 * time.Second,
+}
+
+func ImageFromURL(url string) (image.Image, error) {
+	resp, err := imageHTTPClient.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to fetch image: HTTP %d", resp.StatusCode)
+	}
+
+	img, _, err := image.Decode(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode image: %w", err)
+	}
+
+	return img, nil
 }

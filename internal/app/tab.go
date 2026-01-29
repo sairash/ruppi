@@ -34,7 +34,7 @@ type Tab struct {
 }
 
 func (t *Tab) Render(wordwrap int, isKitty bool) {
-	t.rendered = dom.WordWrap(t.document.Render(isKitty), wordwrap)
+	t.rendered = dom.WordWrap(t.document.Render(t.url, isKitty), wordwrap)
 	t.renderedWidth = wordwrap
 }
 
@@ -166,7 +166,8 @@ func (ts *Tabs) ShowTabs(width int) string {
 		Foreground(lipgloss.Color(theme.TabTextColor)).
 		Background(lipgloss.Color(moveRightButtonColor)).
 		Padding(0, 1).
-		Margin(0, 1)
+		MarginLeft(2).
+		MarginRight(1)
 		// Border(lipgloss.RoundedBorder())
 
 	newTabStyle := lipgloss.NewStyle().

@@ -18,7 +18,7 @@ import (
 type active_session int
 
 const (
-	ruppiUIBufferSize   = 5
+	ruppiUIBufferSize   = 4
 	inspectorBufferSize = 10
 
 	ACTIVE_VIEWPORT active_session = iota
@@ -167,6 +167,7 @@ func (b Browser) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		b.InspectorViewport.ScrollDown(1)
 
 		cmds = append(cmds, b.Logger.Listen())
+
 	case tea.WindowSizeMsg:
 		b.Width = msg.Width
 		b.Height = msg.Height

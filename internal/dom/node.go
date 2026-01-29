@@ -3,6 +3,7 @@ package dom
 import (
 	"fmt"
 	"ruppi/internal/config"
+	"ruppi/pkg/helper"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -113,14 +114,14 @@ func (s *renderState) ensureNewline() {
 	}
 }
 
-func (n *Node) Render(isKitty bool) string {
+func (n *Node) Render(url string, isKitty bool) string {
 	var sb strings.Builder
 	state := &renderState{builder: &sb}
-	n.renderRecursive(state, isKitty)
+	n.renderRecursive(state, url, isKitty)
 	return sb.String()
 }
 
-func (n *Node) renderRecursive(state *renderState, isKitty bool) {
+func (n *Node) renderRecursive(state *renderState, url string, isKitty bool) {
 	isBlock := isBlockElement(n.Element.NodeType)
 
 	if isBlock {
@@ -137,7 +138,7 @@ func (n *Node) renderRecursive(state *renderState, isKitty bool) {
 		var childrenBuilder strings.Builder
 		childrenState := &renderState{builder: &childrenBuilder, listIndex: state.listIndex}
 		for i, child := range n.Children {
-			child.renderRecursive(childrenState, isKitty)
+			child.renderRecursive(childrenState, url, isKitty)
 
 			if i < len(n.Children)-1 && !isBlockElement(child.Element.NodeType) && !isBlockElement(n.Children[i+1].Element.NodeType) {
 				childrenBuilder.WriteString(" ")
@@ -173,7 +174,21 @@ func (n *Node) renderRecursive(state *renderState, isKitty bool) {
 		}
 	case IMG:
 		alt := n.Element.Attrs["alt"]
-		finalOutput = ItalicStyle.Render(fmt.Sprintf("[Image: %s]", alt))
+		imgUrl := n.Element.Attrs["src"]
+		if validUrl, err := helper.ResolveURL(url, imgUrl); err == nil {
+			imgUrl = validUrl
+		}
+
+		// Get sixel config and encode image
+		// cfg := config.GetSixelConfig()
+		// if cfg.Enabled && imgUrl != "" {
+		// 	if data, err := sixel.EncodeFromURL(imgUrl, cfg.MaxWidth, cfg.MaxHeight); err == nil && data != "" {
+		// 		finalOutput = "\n" + data + "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
+		// 	}
+		// } else {
+		// 	finalOutput = ItalicStyle.Render(fmt.Sprintf("[Image: %s]", alt))
+		// }
+		finalOutput = ItalicStyle.Render(fmt.Sprintf("[Image: %s, Url: %s]", alt, imgUrl))
 
 	case BLOCKQUOTE:
 		finalOutput = BlockquoteStyle.Render(content)
@@ -234,6 +249,13 @@ func normalizeNewlines(s string) string {
 	consecutiveEmptyLines := 0
 
 	for _, line := range lines {
+		// Don't process lines containing sixel data
+		// if strings.Contains(line, "\x1bP") || strings.Contains(line, "\x1b\\") {
+		// 	consecutiveEmptyLines = 0
+		// 	result = append(result, line)
+		// 	continue
+		// }
+
 		cleanLine := strings.TrimSpace(stripANSICodes(line))
 		isEmptyLine := cleanLine == ""
 
@@ -251,14 +273,63 @@ func normalizeNewlines(s string) string {
 	return strings.Join(result, "\n")
 }
 
+// sixelPlaceholder is used to temporarily replace sixel sequences during word wrapping
+const sixelPlaceholder = "\x00SIXEL_%d_PLACEHOLDER\x00"
+
+// extractSixels extracts sixel sequences from text and replaces them with placeholders
+// Returns the modified text and a slice of extracted sixel sequences
+func extractSixels(text string) (string, []string) {
+	var sixels []string
+	result := text
+
+	// Sixel sequences start with ESC P (\x1bP) and end with ESC \ (\x1b\)
+	for {
+		startIdx := strings.Index(result, "\x1bP")
+		if startIdx == -1 {
+			break
+		}
+
+		// Find the end of the sixel sequence (ST = ESC \)
+		endIdx := strings.Index(result[startIdx:], "\x1b\\")
+		if endIdx == -1 {
+			// Malformed sixel, skip
+			break
+		}
+		endIdx += startIdx + 2 // Include the ST terminator
+
+		// Extract the sixel sequence
+		sixelSeq := result[startIdx:endIdx]
+		sixels = append(sixels, sixelSeq)
+
+		// Replace with placeholder
+		placeholder := fmt.Sprintf(sixelPlaceholder, len(sixels)-1)
+		result = result[:startIdx] + placeholder + result[endIdx:]
+	}
+
+	return result, sixels
+}
+
+// restoreSixels replaces placeholders with the original sixel sequences
+func restoreSixels(text string, sixels []string) string {
+	result := text
+	for i, sixel := range sixels {
+		placeholder := fmt.Sprintf(sixelPlaceholder, i)
+		result = strings.Replace(result, placeholder, sixel, 1)
+	}
+	return result
+}
+
 func WordWrap(text string, maxWidth int) string {
 	if maxWidth <= 0 {
 		return text
 	}
 
+	// Extract sixel sequences before word wrapping to preserve them
+	textWithoutSixels, sixels := extractSixels(text)
+
 	wordWrapper := wordwrap.NewWriter(maxWidth)
 	wordWrapper.Breakpoints = []rune{' ', '\t', '-', '–', '—', ':', ',', ';', '.', '!', '?', '/', '\\'}
-	wordWrapper.Write([]byte(text))
+	wordWrapper.Write([]byte(textWithoutSixels))
 	wrappedText := wordWrapper.String()
 
 	unconditionalWrapper := wrap.NewWriter(maxWidth)
@@ -273,6 +344,9 @@ func WordWrap(text string, maxWidth int) string {
 		lines[i] = strings.TrimRight(line, " \t")
 	}
 	finalText = strings.Join(lines, "\n")
+
+	// Restore sixel sequences
+	finalText = restoreSixels(finalText, sixels)
 
 	return normalizeNewlines(finalText)
 }

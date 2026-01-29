@@ -49,11 +49,24 @@ type Theme struct {
 	InspectorBackground string
 }
 
+// SixelConfig holds sixel image settings
+type SixelConfig struct {
+	Enabled   bool
+	MaxWidth  int
+	MaxHeight int
+}
+
 var (
 	ruppiConfig  = make(StyleMap)
 	maxGaps      = 3
 	currentTheme = getDefaultTheme()
+	sixelConfig  = SixelConfig{Enabled: true, MaxWidth: 400, MaxHeight: 300}
 )
+
+// GetSixelConfig returns the sixel configuration
+func GetSixelConfig() SixelConfig {
+	return sixelConfig
+}
 
 func parseKeyValue(line string, info StyleInfo) (StyleInfo, error) {
 	parts := strings.Fields(line)
@@ -231,8 +244,20 @@ func parseRuppiSetting(line string) error {
 	case "new-tab-tooltip":
 		currentTheme.NewTabTooltip = value
 
+	// Sixel Configuration
+	case "enable-sixel":
+		sixelConfig.Enabled = parseBool(value)
+	case "sixel-max-width":
+		if w, err := strconv.Atoi(value); err == nil && w > 0 {
+			sixelConfig.MaxWidth = w
+		}
+	case "sixel-max-height":
+		if h, err := strconv.Atoi(value); err == nil && h > 0 {
+			sixelConfig.MaxHeight = h
+		}
+
 	default:
-		return fmt.Errorf("unknown rupi setting: %s", key)
+		return fmt.Errorf("unknown ruppi setting: %s", key)
 	}
 
 	return nil
@@ -368,16 +393,16 @@ func LoadConfig(path string) error {
 		}
 
 		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
-			if currentTag != "" && currentTag != "rupi" {
+			if currentTag != "" && currentTag != "ruppi" {
 				ruppiConfig[currentTag] = currentInfo
 			}
 
 			currentTag = strings.Trim(line, "[]")
 			currentInfo = StyleInfo{Style: lipgloss.NewStyle()}
 		} else if currentTag != "" {
-			if currentTag == "rupi" {
+			if currentTag == "ruppi" {
 				if err := parseRuppiSetting(line); err != nil {
-					fmt.Printf("Warning: skipping rupi setting: %v\n", err)
+					fmt.Printf("Warning: skipping ruppi setting: %v\n", err)
 				}
 			} else {
 				var err error
@@ -389,7 +414,7 @@ func LoadConfig(path string) error {
 		}
 	}
 
-	if currentTag != "" && currentTag != "rupi" {
+	if currentTag != "" && currentTag != "ruppi" {
 		ruppiConfig[currentTag] = currentInfo
 	}
 

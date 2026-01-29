@@ -1,7 +1,7 @@
 # Default styles inspired by charmbracelet/glow
 # Using a pleasant, modern color palette.
 
-[rupi]
+[ruppi]
 # Gap Configuration
 max-gaps 3
 
@@ -30,6 +30,11 @@ inspector-toggle-key "?"
 quit-key "q"
 search-key "i"
 new-tab-tooltip "New Tab"
+
+# Sixel Image Configuration
+enable-sixel true
+sixel-max-width 400
+sixel-max-height 300
 
 [div]
 foreground #abb2bf
